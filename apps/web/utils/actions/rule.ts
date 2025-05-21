@@ -424,13 +424,20 @@ export const createRulesOnboardingAction = actionClient
     async ({
       ctx: { emailAccountId },
       parsedInput: {
-        newsletter,
-        coldEmail,
-        toReply,
-        marketing,
-        calendar,
-        receipt,
-        notification,
+        toReplyAction,
+        toReplyDigest,
+        newsletterAction,
+        newsletterDigest,
+        marketingAction,
+        marketingDigest,
+        calendarAction,
+        calendarDigest,
+        receiptAction,
+        receiptDigest,
+        notificationAction,
+        notificationDigest,
+        coldEmailAction,
+        coldEmailDigest,
       },
     }) => {
       const emailAccount = await prisma.emailAccount.findUnique({
@@ -445,12 +452,12 @@ export const createRulesOnboardingAction = actionClient
         value !== "none";
 
       // cold email blocker
-      if (isSet(coldEmail)) {
+      if (isSet(coldEmailAction)) {
         const promise = prisma.emailAccount.update({
           where: { id: emailAccountId },
           data: {
             coldEmailBlocker:
-              coldEmail === "label"
+              coldEmailAction === "label"
                 ? ColdEmailSetting.LABEL
                 : ColdEmailSetting.ARCHIVE_AND_LABEL,
           },
@@ -461,7 +468,7 @@ export const createRulesOnboardingAction = actionClient
       const rules: string[] = [];
 
       // reply tracker
-      if (isSet(toReply)) {
+      if (isSet(toReplyAction)) {
         const promise = enableReplyTracker({ emailAccountId }).then((res) => {
           if (res?.alreadyEnabled) return;
 
@@ -494,10 +501,19 @@ export const createRulesOnboardingAction = actionClient
         label: string,
         systemType: SystemType,
         emailAccountId: string,
+        digest: boolean,
       ) {
         const existingRule = await prisma.rule.findUnique({
           where: { emailAccountId_systemType: { emailAccountId, systemType } },
         });
+
+        const actions = [
+          { type: ActionType.LABEL, label },
+          ...(categoryAction === "label_archive"
+            ? [{ type: ActionType.ARCHIVE }]
+            : []),
+          ...(digest ? [{ type: ActionType.DIGEST }] : []),
+        ];
 
         if (existingRule) {
           const promise = prisma.rule
@@ -508,25 +524,17 @@ export const createRulesOnboardingAction = actionClient
                 actions: {
                   deleteMany: {},
                   createMany: {
-                    data: [
-                      { type: ActionType.LABEL, label },
-                      ...(categoryAction === "label_archive"
-                        ? [{ type: ActionType.ARCHIVE }]
-                        : []),
-                    ],
+                    data: actions,
                   },
                 },
               },
             })
-            // NOTE: doesn't update without this line
             .then(() => {})
             .catch((error) => {
               logger.error("Error updating rule", { error });
               throw error;
             });
           promises.push(promise);
-
-          // TODO: prompt file update
         } else {
           const promise = prisma.rule
             .create({
@@ -539,12 +547,7 @@ export const createRulesOnboardingAction = actionClient
                 runOnThreads,
                 actions: {
                   createMany: {
-                    data: [
-                      { type: ActionType.LABEL, label },
-                      ...(categoryAction === "label_archive"
-                        ? [{ type: ActionType.ARCHIVE }]
-                        : []),
-                    ],
+                    data: actions,
                   },
                 },
               },
@@ -560,7 +563,7 @@ export const createRulesOnboardingAction = actionClient
           rules.push(
             `${promptFileInstructions}${
               categoryAction === "label_archive" ? " and archive them" : ""
-            }.`,
+            }${digest ? " and include them in digest emails" : ""}.`,
           );
         }
       }
@@ -582,80 +585,85 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // newsletter
-      if (isSet(newsletter)) {
+      if (isSet(newsletterAction)) {
         createRule(
           RuleName.Newsletter,
           "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
           "Label all newsletters as 'Newsletter'",
           false,
-          newsletter,
+          newsletterAction,
           "Newsletter",
           SystemType.NEWSLETTER,
           emailAccountId,
+          newsletterDigest,
         );
       } else {
         deleteRule(SystemType.NEWSLETTER, emailAccountId);
       }
 
       // marketing
-      if (isSet(marketing)) {
+      if (isSet(marketingAction)) {
         createRule(
           RuleName.Marketing,
           "Marketing: Promotional emails about products, services, sales, or offers",
           "Label all marketing emails as 'Marketing'",
           false,
-          marketing,
+          marketingAction,
           "Marketing",
           SystemType.MARKETING,
           emailAccountId,
+          marketingDigest,
         );
       } else {
         deleteRule(SystemType.MARKETING, emailAccountId);
       }
 
       // calendar
-      if (isSet(calendar)) {
+      if (isSet(calendarAction)) {
         createRule(
           RuleName.Calendar,
           "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
           "Label all calendar emails as 'Calendar'",
           false,
-          calendar,
+          calendarAction,
           "Calendar",
           SystemType.CALENDAR,
           emailAccountId,
+          calendarDigest,
         );
       } else {
         deleteRule(SystemType.CALENDAR, emailAccountId);
       }
 
       // receipt
-      if (isSet(receipt)) {
+      if (isSet(receiptAction)) {
         createRule(
           RuleName.Receipt,
           "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
           "Label all receipts as 'Receipts'",
           false,
-          receipt,
+          receiptAction,
           "Receipt",
           SystemType.RECEIPT,
           emailAccountId,
+          receiptDigest,
         );
       } else {
         deleteRule(SystemType.RECEIPT, emailAccountId);
       }
 
       // notification
-      if (isSet(notification)) {
+      if (isSet(notificationAction)) {
         createRule(
           RuleName.Notification,
           "Notifications: Alerts, status updates, or system messages",
           "Label all notifications as 'Notifications'",
           false,
-          notification,
+          notificationAction,
           "Notification",
           SystemType.NOTIFICATION,
           emailAccountId,
+          notificationDigest,
         );
       } else {
         deleteRule(SystemType.NOTIFICATION, emailAccountId);

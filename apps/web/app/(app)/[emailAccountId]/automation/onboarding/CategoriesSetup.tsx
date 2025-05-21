@@ -37,6 +37,7 @@ import {
   markOnboardingAsCompleted,
 } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
+import { Checkbox } from "@/components/Checkbox";
 
 const NEXT_URL = "/automation/onboarding/draft-replies";
 
@@ -52,19 +53,25 @@ export function CategoriesSetup({
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
     defaultValues: {
-      toReply: defaultValues?.toReply || "label",
-      newsletter: defaultValues?.newsletter || "label",
-      marketing: defaultValues?.marketing || "label_archive",
-      calendar: defaultValues?.calendar || "label",
-      receipt: defaultValues?.receipt || "label",
-      notification: defaultValues?.notification || "label",
-      coldEmail: defaultValues?.coldEmail || "label_archive",
+      toReplyAction: defaultValues?.toReplyAction || "label",
+      toReplyDigest: defaultValues?.toReplyDigest ?? false,
+      newsletterAction: defaultValues?.newsletterAction || "label",
+      newsletterDigest: defaultValues?.newsletterDigest ?? true,
+      marketingAction: defaultValues?.marketingAction || "label_archive",
+      marketingDigest: defaultValues?.marketingDigest ?? true,
+      calendarAction: defaultValues?.calendarAction || "label",
+      calendarDigest: defaultValues?.calendarDigest ?? false,
+      receiptAction: defaultValues?.receiptAction || "label",
+      receiptDigest: defaultValues?.receiptDigest ?? false,
+      notificationAction: defaultValues?.notificationAction || "label",
+      notificationDigest: defaultValues?.notificationDigest ?? false,
+      coldEmailAction: defaultValues?.coldEmailAction || "label_archive",
+      coldEmailDigest: defaultValues?.coldEmailDigest ?? false,
     },
   });
 
   const onSubmit = useCallback(
     async (data: CreateRulesOnboardingBody) => {
-      // runs in background so we can move on to next step faster
       createRulesOnboardingAction(emailAccountId, data);
       router.push(prefixPath(emailAccountId, NEXT_URL));
     },
@@ -89,6 +96,8 @@ export function CategoriesSetup({
           <CategoryCard
             id="toReply"
             label="To Reply"
+            digestName="toReplyDigest"
+            actionName="toReplyAction"
             tooltipText="Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses"
             icon={<Mail className="h-5 w-5 text-blue-500" />}
             form={form}
@@ -96,6 +105,8 @@ export function CategoriesSetup({
           <CategoryCard
             id="newsletter"
             label="Newsletter"
+            digestName="newsletterDigest"
+            actionName="newsletterAction"
             tooltipText="Newsletters, blogs, and publications"
             icon={<Newspaper className="h-5 w-5 text-purple-500" />}
             form={form}
@@ -103,6 +114,8 @@ export function CategoriesSetup({
           <CategoryCard
             id="marketing"
             label="Marketing"
+            digestName="marketingDigest"
+            actionName="marketingAction"
             tooltipText="Promotional emails about sales and offers"
             icon={<Megaphone className="h-5 w-5 text-green-500" />}
             form={form}
@@ -110,6 +123,8 @@ export function CategoriesSetup({
           <CategoryCard
             id="calendar"
             label="Calendar"
+            digestName="calendarDigest"
+            actionName="calendarAction"
             tooltipText="Events, appointments, and reminders"
             icon={<Calendar className="h-5 w-5 text-yellow-500" />}
             form={form}
@@ -117,6 +132,8 @@ export function CategoriesSetup({
           <CategoryCard
             id="receipt"
             label="Receipt"
+            digestName="receiptDigest"
+            actionName="receiptAction"
             tooltipText="Invoices, receipts, and payments"
             icon={<Receipt className="h-5 w-5 text-orange-500" />}
             form={form}
@@ -124,6 +141,8 @@ export function CategoriesSetup({
           <CategoryCard
             id="notification"
             label="Notification"
+            digestName="notificationDigest"
+            actionName="notificationAction"
             tooltipText="Alerts, status updates, and system messages"
             icon={<Bell className="h-5 w-5 text-red-500" />}
             form={form}
@@ -131,6 +150,8 @@ export function CategoriesSetup({
           <CategoryCard
             id="coldEmail"
             label="Cold Email"
+            digestName="coldEmailDigest"
+            actionName="coldEmailAction"
             tooltipText="Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before"
             icon={<Users className="h-5 w-5 text-indigo-500" />}
             form={form}
@@ -162,12 +183,16 @@ export function CategoriesSetup({
 function CategoryCard({
   id,
   label,
+  digestName,
+  actionName,
   icon,
   form,
   tooltipText,
 }: {
-  id: keyof CreateRulesOnboardingBody;
+  id: string;
   label: string;
+  digestName: keyof CreateRulesOnboardingBody;
+  actionName: keyof CreateRulesOnboardingBody;
   icon: React.ReactNode;
   form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
   tooltipText?: string;
@@ -188,15 +213,20 @@ function CategoryCard({
         <div className="ml-auto flex items-center gap-4">
           <FormField
             control={form.control}
-            name={id}
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                CreateRulesOnboardingBody,
-                keyof CreateRulesOnboardingBody
-              >;
-            }) => (
+            name={digestName as any}
+            render={({ field }) => (
+              <FormItem>
+                <Checkbox checked={field.value} onChange={field.onChange} />
+                <label htmlFor={`${id}-digest`} className="ml-2">
+                  Digest
+                </label>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name={actionName as any}
+            render={({ field }) => (
               <FormItem>
                 <Select
                   onValueChange={field.onChange}
@@ -212,7 +242,6 @@ function CategoryCard({
                     <SelectItem value="label_archive">
                       Label + Skip Inbox
                     </SelectItem>
-                    <SelectItem value="none">None</SelectItem>
                   </SelectContent>
                 </Select>
               </FormItem>
