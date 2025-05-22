@@ -65,13 +65,40 @@ async function getUserPreferences({
   if (!emailAccount) return undefined;
 
   return {
-    toReply: getToReplySetting(emailAccount.rules),
-    coldEmails: getColdEmailSetting(emailAccount.coldEmailBlocker),
-    newsletter: getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules),
-    marketing: getRuleSetting(SystemType.MARKETING, emailAccount.rules),
-    calendar: getRuleSetting(SystemType.CALENDAR, emailAccount.rules),
-    receipt: getRuleSetting(SystemType.RECEIPT, emailAccount.rules),
-    notification: getRuleSetting(SystemType.NOTIFICATION, emailAccount.rules),
+    toReply: {
+      action: getToReplySetting(emailAccount.rules) || "label",
+      digest: false,
+    },
+    coldEmail: {
+      action:
+        getColdEmailSetting(emailAccount.coldEmailBlocker) || "label_archive",
+      digest: false,
+    },
+    newsletter: {
+      action:
+        getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules) || "label",
+      digest: true,
+    },
+    marketing: {
+      action:
+        getRuleSetting(SystemType.MARKETING, emailAccount.rules) ||
+        "label_archive",
+      digest: true,
+    },
+    calendar: {
+      action:
+        getRuleSetting(SystemType.CALENDAR, emailAccount.rules) || "label",
+      digest: false,
+    },
+    receipt: {
+      action: getRuleSetting(SystemType.RECEIPT, emailAccount.rules) || "label",
+      digest: false,
+    },
+    notification: {
+      action:
+        getRuleSetting(SystemType.NOTIFICATION, emailAccount.rules) || "label",
+      digest: false,
+    },
   };
 }
 

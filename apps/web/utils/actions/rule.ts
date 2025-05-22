@@ -424,20 +424,13 @@ export const createRulesOnboardingAction = actionClient
     async ({
       ctx: { emailAccountId },
       parsedInput: {
-        toReplyAction,
-        toReplyDigest,
-        newsletterAction,
-        newsletterDigest,
-        marketingAction,
-        marketingDigest,
-        calendarAction,
-        calendarDigest,
-        receiptAction,
-        receiptDigest,
-        notificationAction,
-        notificationDigest,
-        coldEmailAction,
-        coldEmailDigest,
+        toReply: { action: toReply, digest: toReplyDigest },
+        newsletter: { action: newsletter, digest: newsletterDigest },
+        marketing: { action: marketing, digest: marketingDigest },
+        calendar: { action: calendar, digest: calendarDigest },
+        receipt: { action: receipt, digest: receiptDigest },
+        notification: { action: notification, digest: notificationDigest },
+        coldEmail: { action: coldEmail, digest: coldEmailDigest },
       },
     }) => {
       const emailAccount = await prisma.emailAccount.findUnique({
@@ -452,12 +445,12 @@ export const createRulesOnboardingAction = actionClient
         value !== "none";
 
       // cold email blocker
-      if (isSet(coldEmailAction)) {
+      if (isSet(coldEmail)) {
         const promise = prisma.emailAccount.update({
           where: { id: emailAccountId },
           data: {
             coldEmailBlocker:
-              coldEmailAction === "label"
+              coldEmail === "label"
                 ? ColdEmailSetting.LABEL
                 : ColdEmailSetting.ARCHIVE_AND_LABEL,
           },
@@ -468,7 +461,7 @@ export const createRulesOnboardingAction = actionClient
       const rules: string[] = [];
 
       // reply tracker
-      if (isSet(toReplyAction)) {
+      if (isSet(toReply)) {
         const promise = enableReplyTracker({ emailAccountId }).then((res) => {
           if (res?.alreadyEnabled) return;
 
@@ -585,13 +578,13 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // newsletter
-      if (isSet(newsletterAction)) {
+      if (isSet(newsletter)) {
         createRule(
           RuleName.Newsletter,
           "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
           "Label all newsletters as 'Newsletter'",
           false,
-          newsletterAction,
+          newsletter,
           "Newsletter",
           SystemType.NEWSLETTER,
           emailAccountId,
@@ -602,13 +595,13 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // marketing
-      if (isSet(marketingAction)) {
+      if (isSet(marketing)) {
         createRule(
           RuleName.Marketing,
           "Marketing: Promotional emails about products, services, sales, or offers",
           "Label all marketing emails as 'Marketing'",
           false,
-          marketingAction,
+          marketing,
           "Marketing",
           SystemType.MARKETING,
           emailAccountId,
@@ -619,13 +612,13 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // calendar
-      if (isSet(calendarAction)) {
+      if (isSet(calendar)) {
         createRule(
           RuleName.Calendar,
           "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
           "Label all calendar emails as 'Calendar'",
           false,
-          calendarAction,
+          calendar,
           "Calendar",
           SystemType.CALENDAR,
           emailAccountId,
@@ -636,13 +629,13 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // receipt
-      if (isSet(receiptAction)) {
+      if (isSet(receipt)) {
         createRule(
           RuleName.Receipt,
           "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
           "Label all receipts as 'Receipts'",
           false,
-          receiptAction,
+          receipt,
           "Receipt",
           SystemType.RECEIPT,
           emailAccountId,
@@ -653,13 +646,13 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // notification
-      if (isSet(notificationAction)) {
+      if (isSet(notification)) {
         createRule(
           RuleName.Notification,
           "Notifications: Alerts, status updates, or system messages",
           "Label all notifications as 'Notifications'",
           false,
-          notificationAction,
+          notification,
           "Notification",
           SystemType.NOTIFICATION,
           emailAccountId,

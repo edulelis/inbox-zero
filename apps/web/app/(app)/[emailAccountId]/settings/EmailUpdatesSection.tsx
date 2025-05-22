@@ -70,7 +70,10 @@ function SummaryUpdateSectionForm({
   } = useForm<SaveEmailUpdateSettingsBody>({
     resolver: zodResolver(saveEmailUpdateSettingsBody),
     defaultValues: {
-      summaryEmailFrequency,
+      summaryEmailFrequency:
+        summaryEmailFrequency === Frequency.DAILY
+          ? Frequency.NEVER
+          : summaryEmailFrequency,
       statsEmailFrequency: Frequency.NEVER,
       digestEmailFrequency,
       digestEmailDayOfWeek,
@@ -145,9 +148,12 @@ function DigestUpdateSectionForm({
   } = useForm<SaveEmailUpdateSettingsBody>({
     resolver: zodResolver(saveEmailUpdateSettingsBody),
     defaultValues: {
-      summaryEmailFrequency,
+      summaryEmailFrequency:
+        summaryEmailFrequency === Frequency.DAILY
+          ? Frequency.NEVER
+          : summaryEmailFrequency,
       statsEmailFrequency: Frequency.NEVER,
-      digestEmailFrequency,
+      digestEmailFrequency: digestEmailFrequency,
       digestEmailDayOfWeek,
     },
   });

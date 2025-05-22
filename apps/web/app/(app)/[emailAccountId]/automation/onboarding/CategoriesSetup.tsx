@@ -53,25 +53,31 @@ export function CategoriesSetup({
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
     defaultValues: {
-      toReplyAction: defaultValues?.toReplyAction || "label",
-      toReplyDigest: defaultValues?.toReplyDigest ?? false,
-      newsletterAction: defaultValues?.newsletterAction || "label",
-      newsletterDigest: defaultValues?.newsletterDigest ?? true,
-      marketingAction: defaultValues?.marketingAction || "label_archive",
-      marketingDigest: defaultValues?.marketingDigest ?? true,
-      calendarAction: defaultValues?.calendarAction || "label",
-      calendarDigest: defaultValues?.calendarDigest ?? false,
-      receiptAction: defaultValues?.receiptAction || "label",
-      receiptDigest: defaultValues?.receiptDigest ?? false,
-      notificationAction: defaultValues?.notificationAction || "label",
-      notificationDigest: defaultValues?.notificationDigest ?? false,
-      coldEmailAction: defaultValues?.coldEmailAction || "label_archive",
-      coldEmailDigest: defaultValues?.coldEmailDigest ?? false,
+      toReply: defaultValues?.toReply || { action: "label", digest: false },
+      newsletter: defaultValues?.newsletter || {
+        action: "label",
+        digest: true,
+      },
+      marketing: defaultValues?.marketing || {
+        action: "label_archive",
+        digest: true,
+      },
+      calendar: defaultValues?.calendar || { action: "label", digest: false },
+      receipt: defaultValues?.receipt || { action: "label", digest: false },
+      notification: defaultValues?.notification || {
+        action: "label",
+        digest: false,
+      },
+      coldEmail: defaultValues?.coldEmail || {
+        action: "label_archive",
+        digest: false,
+      },
     },
   });
 
   const onSubmit = useCallback(
     async (data: CreateRulesOnboardingBody) => {
+      // runs in background so we can move on to next step faster
       createRulesOnboardingAction(emailAccountId, data);
       router.push(prefixPath(emailAccountId, NEXT_URL));
     },
@@ -96,8 +102,6 @@ export function CategoriesSetup({
           <CategoryCard
             id="toReply"
             label="To Reply"
-            digestName="toReplyDigest"
-            actionName="toReplyAction"
             tooltipText="Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses"
             icon={<Mail className="h-5 w-5 text-blue-500" />}
             form={form}
@@ -105,8 +109,6 @@ export function CategoriesSetup({
           <CategoryCard
             id="newsletter"
             label="Newsletter"
-            digestName="newsletterDigest"
-            actionName="newsletterAction"
             tooltipText="Newsletters, blogs, and publications"
             icon={<Newspaper className="h-5 w-5 text-purple-500" />}
             form={form}
@@ -114,8 +116,6 @@ export function CategoriesSetup({
           <CategoryCard
             id="marketing"
             label="Marketing"
-            digestName="marketingDigest"
-            actionName="marketingAction"
             tooltipText="Promotional emails about sales and offers"
             icon={<Megaphone className="h-5 w-5 text-green-500" />}
             form={form}
@@ -123,8 +123,6 @@ export function CategoriesSetup({
           <CategoryCard
             id="calendar"
             label="Calendar"
-            digestName="calendarDigest"
-            actionName="calendarAction"
             tooltipText="Events, appointments, and reminders"
             icon={<Calendar className="h-5 w-5 text-yellow-500" />}
             form={form}
@@ -132,8 +130,6 @@ export function CategoriesSetup({
           <CategoryCard
             id="receipt"
             label="Receipt"
-            digestName="receiptDigest"
-            actionName="receiptAction"
             tooltipText="Invoices, receipts, and payments"
             icon={<Receipt className="h-5 w-5 text-orange-500" />}
             form={form}
@@ -141,8 +137,6 @@ export function CategoriesSetup({
           <CategoryCard
             id="notification"
             label="Notification"
-            digestName="notificationDigest"
-            actionName="notificationAction"
             tooltipText="Alerts, status updates, and system messages"
             icon={<Bell className="h-5 w-5 text-red-500" />}
             form={form}
@@ -150,8 +144,6 @@ export function CategoriesSetup({
           <CategoryCard
             id="coldEmail"
             label="Cold Email"
-            digestName="coldEmailDigest"
-            actionName="coldEmailAction"
             tooltipText="Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before"
             icon={<Users className="h-5 w-5 text-indigo-500" />}
             form={form}
@@ -183,16 +175,12 @@ export function CategoriesSetup({
 function CategoryCard({
   id,
   label,
-  digestName,
-  actionName,
   icon,
   form,
   tooltipText,
 }: {
-  id: string;
+  id: keyof CreateRulesOnboardingBody;
   label: string;
-  digestName: keyof CreateRulesOnboardingBody;
-  actionName: keyof CreateRulesOnboardingBody;
   icon: React.ReactNode;
   form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
   tooltipText?: string;
@@ -213,7 +201,7 @@ function CategoryCard({
         <div className="ml-auto flex items-center gap-4">
           <FormField
             control={form.control}
-            name={digestName as any}
+            name={`${id}.digest`}
             render={({ field }) => (
               <FormItem>
                 <Checkbox checked={field.value} onChange={field.onChange} />
@@ -225,7 +213,7 @@ function CategoryCard({
           />
           <FormField
             control={form.control}
-            name={actionName as any}
+            name={`${id}.action`}
             render={({ field }) => (
               <FormItem>
                 <Select
