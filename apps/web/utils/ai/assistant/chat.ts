@@ -1,4 +1,4 @@
-import { streamText, tool } from "ai";
+import { type Message, type StepResult, type Tool, tool } from "ai";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
@@ -9,10 +9,10 @@ import {
   updateRuleActions,
 } from "@/utils/rule/rule";
 import { ActionType, GroupItemType, LogicalOperator } from "@prisma/client";
-import { saveAiUsage } from "@/utils/usage";
-import { getModel } from "@/utils/llms/model";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
+import { posthogCaptureEvent } from "@/utils/posthog";
+import { chatCompletionStream } from "@/utils/llms";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -95,59 +95,6 @@ export type UpdateLearnedPatternsSchema = z.infer<
   typeof updateLearnedPatternsSchema
 >;
 
-// // Keeping the original schema for backward compatibility
-// const updateRuleSchema = z.object({
-//   ruleName: z.string().describe("The name of the rule to update"),
-//   condition: z
-//     .object({
-//       aiInstructions: z.string(),
-//       static: z.object({
-//         from: z.string(),
-//         to: z.string(),
-//         subject: z.string(),
-//         body: z.string(),
-//       }),
-//       conditionalOperator: z.enum([LogicalOperator.AND, LogicalOperator.OR]),
-//     })
-//     .optional(),
-//   actions: z.array(
-//     z
-//       .object({
-//         type: z.enum([
-//           ActionType.ARCHIVE,
-//           ActionType.LABEL,
-//           ActionType.REPLY,
-//           ActionType.SEND_EMAIL,
-//           ActionType.FORWARD,
-//           ActionType.MARK_READ,
-//           ActionType.MARK_SPAM,
-//           ActionType.CALL_WEBHOOK,
-//         ]),
-//         fields: z.object({
-//           label: z.string().optional(),
-//           content: z.string().optional(),
-//           webhookUrl: z.string().optional(),
-//         }),
-//       })
-//       .optional(),
-//   ),
-//   learnedPatterns: z
-//     .array(
-//       z.object({
-//         include: z.object({
-//           from: z.string(),
-//           subject: z.string(),
-//         }),
-//         exclude: z.object({
-//           from: z.string(),
-//           subject: z.string(),
-//         }),
-//       }),
-//     )
-//     .optional(),
-// });
-// export type UpdateRuleSchema = z.infer<typeof updateRuleSchema>;
-
 const updateAboutSchema = z.object({ about: z.string() });
 export type UpdateAboutSchema = z.infer<typeof updateAboutSchema>;
 
@@ -161,10 +108,17 @@ export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
   user,
+  onFinish,
 }: {
-  messages: { role: "user" | "assistant"; content: string }[];
+  messages: Message[];
   emailAccountId: string;
   user: EmailAccountWithAI;
+  onFinish: (
+    response: Omit<
+      StepResult<Record<string, Tool>>,
+      "stepType" | "isContinued"
+    >,
+  ) => Promise<void>;
 }) {
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
@@ -420,18 +374,18 @@ Examples:
   </example>
 </examples>`;
 
-  // TODO: clean up
-  const { provider, model, llmModel, providerOptions } = getModel(
-    user.user,
-    false,
-  );
-
   logger.trace("Input", { messages });
 
-  const result = streamText({
-    model: llmModel,
-    messages,
+  const result = chatCompletionStream({
+    userAi: user.user,
+    userEmail: user.email,
+    usageLabel: "assistant-chat",
     system,
+    messages,
+    onStepFinish: async ({ text, toolCalls }) => {
+      logger.trace("Step finished", { text, toolCalls });
+    },
+    onFinish,
     maxSteps: 10,
     tools: {
       get_user_rules_and_settings: tool({
@@ -439,8 +393,12 @@ Examples:
           "Retrieve all existing rules for the user, their about information, and the cold email blocker setting",
         parameters: z.object({}),
         execute: async () => {
-          // trackToolCall("list_rules", user.email);
-          const [rules, user] = await Promise.all([
+          trackToolCall({
+            tool: "get_user_rules_and_settings",
+            email: user.email,
+          });
+
+          const [rules, emailAccount] = await Promise.all([
             prisma.rule.findMany({ where: { emailAccountId } }),
             prisma.emailAccount.findUnique({
               where: { id: emailAccountId },
@@ -450,8 +408,8 @@ Examples:
 
           return {
             rules,
-            about: user?.about || "Not set",
-            coldEmailBlocker: user?.coldEmailBlocker || "Not set",
+            about: emailAccount?.about || "Not set",
+            coldEmailBlocker: emailAccount?.coldEmailBlocker || "Not set",
           };
         },
       }),
@@ -460,8 +418,7 @@ Examples:
         description: "Create a new rule",
         parameters: createRuleSchema,
         execute: async ({ name, condition, actions }) => {
-          logger.info("Create Rule", { name, condition, actions });
-          // trackToolCall("create_rule", user.email);
+          trackToolCall({ tool: "create_rule", email: user.email });
 
           try {
             const rule = await createRule({
@@ -505,8 +462,10 @@ Examples:
         description: "Update the conditions of an existing rule",
         parameters: updateRuleConditionSchema,
         execute: async ({ ruleName, condition }) => {
+          trackToolCall({ tool: "update_rule_conditions", email: user.email });
+
           const rule = await prisma.rule.findUnique({
-            where: { id: ruleName, emailAccountId },
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
           });
 
           if (!rule) {
@@ -537,8 +496,9 @@ Examples:
           "Update the actions of an existing rule. This replaces the existing actions.",
         parameters: updateRuleActionsSchema,
         execute: async ({ ruleName, actions }) => {
+          trackToolCall({ tool: "update_rule_actions", email: user.email });
           const rule = await prisma.rule.findUnique({
-            where: { id: ruleName, emailAccountId },
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
           });
 
           if (!rule) {
@@ -572,8 +532,10 @@ Examples:
         description: "Update the learned patterns of an existing rule",
         parameters: updateLearnedPatternsSchema,
         execute: async ({ ruleName, learnedPatterns }) => {
+          trackToolCall({ tool: "update_learned_patterns", email: user.email });
+
           const rule = await prisma.rule.findUnique({
-            where: { id: ruleName, emailAccountId },
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
           });
 
           if (!rule) {
@@ -641,6 +603,7 @@ Examples:
           "Update the user's about information. Read the user's about information first as this replaces the existing information.",
         parameters: updateAboutSchema,
         execute: async ({ about }) => {
+          trackToolCall({ tool: "update_about", email: user.email });
           const existing = await prisma.emailAccount.findUnique({
             where: { id: emailAccountId },
             select: { about: true },
@@ -665,6 +628,8 @@ Examples:
         description: "Add content to the knowledge base",
         parameters: addToKnowledgeBaseSchema,
         execute: async ({ title, content }) => {
+          trackToolCall({ tool: "add_to_knowledge_base", email: user.email });
+
           try {
             await prisma.knowledge.create({
               data: {
@@ -688,19 +653,12 @@ Examples:
         },
       }),
     },
-    onFinish: async ({ usage }) => {
-      await saveAiUsage({
-        email: user.email,
-        provider,
-        model,
-        usage,
-        label: "Assistant chat",
-      });
-    },
-    onStepFinish: async ({ usage, text, toolCalls }) => {
-      logger.trace("Step finished", { usage, text, toolCalls });
-    },
   });
 
   return result;
+}
+
+async function trackToolCall({ tool, email }: { tool: string; email: string }) {
+  logger.info("Tracking tool call", { tool, email });
+  return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
 }
