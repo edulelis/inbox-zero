@@ -103,6 +103,11 @@ model EmailAccount {
   outboundReplyTracking Boolean           @default(false)
   autoCategorizeSenders Boolean           @default(false)
 
+  // Digest email settings
+  digestEmailFrequency   Frequency        @default(NEVER)
+  digestEmailDayOfWeek   Int?           // 0-6 for Sunday-Saturday
+  lastDigestEmailAt      DateTime?
+
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId String  @unique
@@ -121,9 +126,11 @@ model EmailAccount {
   emailMessages  EmailMessage[]
   emailTokens    EmailToken[]
   knowledge      Knowledge[]
+  digests        Digest[]
   chats          Chat[]
 
   @@index([lastSummaryEmailAt])
+  @@index([lastDigestEmailAt])
 }
 
 model Premium {
@@ -566,6 +573,20 @@ model DraftSendLog {
   @@index([executedActionId])
 }
 
+
+model Digest {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  messageId      String
+  threadId       String
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, threadId, emailAccountId])
+  @@index([emailAccountId])
+}
+
 model Chat {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -604,6 +625,7 @@ enum ActionType {
   CALL_WEBHOOK
   MARK_READ
   TRACK_THREAD
+  DIGEST
   // SUMMARIZE
   // SNOOZE
   // ADD_TO_DO
@@ -612,7 +634,7 @@ enum ActionType {
 
 enum Frequency {
   NEVER
-  // DAILY
+  DAILY
   WEEKLY
   // MONTHLY
   // ANNUALLY

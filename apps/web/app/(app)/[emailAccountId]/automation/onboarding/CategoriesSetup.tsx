@@ -37,6 +37,7 @@ import {
   markOnboardingAsCompleted,
 } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
+import { Checkbox } from "@/components/Checkbox";
 
 const NEXT_URL = "/automation/onboarding/draft-replies";
 
@@ -52,13 +53,25 @@ export function CategoriesSetup({
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
     defaultValues: {
-      toReply: defaultValues?.toReply || "label",
-      newsletter: defaultValues?.newsletter || "label",
-      marketing: defaultValues?.marketing || "label_archive",
-      calendar: defaultValues?.calendar || "label",
-      receipt: defaultValues?.receipt || "label",
-      notification: defaultValues?.notification || "label",
-      coldEmail: defaultValues?.coldEmail || "label_archive",
+      toReply: defaultValues?.toReply || { action: "label", digest: false },
+      newsletter: defaultValues?.newsletter || {
+        action: "label",
+        digest: true,
+      },
+      marketing: defaultValues?.marketing || {
+        action: "label_archive",
+        digest: true,
+      },
+      calendar: defaultValues?.calendar || { action: "label", digest: false },
+      receipt: defaultValues?.receipt || { action: "label", digest: false },
+      notification: defaultValues?.notification || {
+        action: "label",
+        digest: false,
+      },
+      coldEmail: defaultValues?.coldEmail || {
+        action: "label_archive",
+        digest: false,
+      },
     },
   });
 
@@ -188,15 +201,20 @@ function CategoryCard({
         <div className="ml-auto flex items-center gap-4">
           <FormField
             control={form.control}
-            name={id}
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                CreateRulesOnboardingBody,
-                keyof CreateRulesOnboardingBody
-              >;
-            }) => (
+            name={`${id}.digest`}
+            render={({ field }) => (
+              <FormItem>
+                <Checkbox checked={field.value} onChange={field.onChange} />
+                <label htmlFor={`${id}-digest`} className="ml-2">
+                  Digest
+                </label>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name={`${id}.action`}
+            render={({ field }) => (
               <FormItem>
                 <Select
                   onValueChange={field.onChange}
@@ -212,7 +230,6 @@ function CategoryCard({
                     <SelectItem value="label_archive">
                       Label + Skip Inbox
                     </SelectItem>
-                    <SelectItem value="none">None</SelectItem>
                   </SelectContent>
                 </Select>
               </FormItem>

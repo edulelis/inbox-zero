@@ -18,6 +18,7 @@ const zodActionType = z.enum([
   ActionType.CALL_WEBHOOK,
   ActionType.MARK_READ,
   ActionType.TRACK_THREAD,
+  ActionType.DIGEST,
 ]);
 
 const zodConditionType = z.enum([
@@ -164,14 +165,15 @@ export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
 
 const categoryAction = z.enum(["label", "label_archive", "none"]);
 export type CategoryAction = z.infer<typeof categoryAction>;
+
 export const createRulesOnboardingBody = z.object({
-  toReply: categoryAction,
-  newsletter: categoryAction,
-  marketing: categoryAction,
-  calendar: categoryAction,
-  receipt: categoryAction,
-  notification: categoryAction,
-  coldEmail: categoryAction,
+  toReply: z.object({ action: categoryAction, digest: z.boolean() }),
+  newsletter: z.object({ action: categoryAction, digest: z.boolean() }),
+  marketing: z.object({ action: categoryAction, digest: z.boolean() }),
+  calendar: z.object({ action: categoryAction, digest: z.boolean() }),
+  receipt: z.object({ action: categoryAction, digest: z.boolean() }),
+  notification: z.object({ action: categoryAction, digest: z.boolean() }),
+  coldEmail: z.object({ action: categoryAction, digest: z.boolean() }),
 });
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody

@@ -424,13 +424,13 @@ export const createRulesOnboardingAction = actionClient
     async ({
       ctx: { emailAccountId },
       parsedInput: {
-        newsletter,
-        coldEmail,
-        toReply,
-        marketing,
-        calendar,
-        receipt,
-        notification,
+        toReply: { action: toReply, digest: toReplyDigest },
+        newsletter: { action: newsletter, digest: newsletterDigest },
+        marketing: { action: marketing, digest: marketingDigest },
+        calendar: { action: calendar, digest: calendarDigest },
+        receipt: { action: receipt, digest: receiptDigest },
+        notification: { action: notification, digest: notificationDigest },
+        coldEmail: { action: coldEmail, digest: coldEmailDigest },
       },
     }) => {
       const emailAccount = await prisma.emailAccount.findUnique({
@@ -494,10 +494,19 @@ export const createRulesOnboardingAction = actionClient
         label: string,
         systemType: SystemType,
         emailAccountId: string,
+        digest: boolean,
       ) {
         const existingRule = await prisma.rule.findUnique({
           where: { emailAccountId_systemType: { emailAccountId, systemType } },
         });
+
+        const actions = [
+          { type: ActionType.LABEL, label },
+          ...(categoryAction === "label_archive"
+            ? [{ type: ActionType.ARCHIVE }]
+            : []),
+          ...(digest ? [{ type: ActionType.DIGEST }] : []),
+        ];
 
         if (existingRule) {
           const promise = prisma.rule
@@ -508,25 +517,17 @@ export const createRulesOnboardingAction = actionClient
                 actions: {
                   deleteMany: {},
                   createMany: {
-                    data: [
-                      { type: ActionType.LABEL, label },
-                      ...(categoryAction === "label_archive"
-                        ? [{ type: ActionType.ARCHIVE }]
-                        : []),
-                    ],
+                    data: actions,
                   },
                 },
               },
             })
-            // NOTE: doesn't update without this line
             .then(() => {})
             .catch((error) => {
               logger.error("Error updating rule", { error });
               throw error;
             });
           promises.push(promise);
-
-          // TODO: prompt file update
         } else {
           const promise = prisma.rule
             .create({
@@ -539,12 +540,7 @@ export const createRulesOnboardingAction = actionClient
                 runOnThreads,
                 actions: {
                   createMany: {
-                    data: [
-                      { type: ActionType.LABEL, label },
-                      ...(categoryAction === "label_archive"
-                        ? [{ type: ActionType.ARCHIVE }]
-                        : []),
-                    ],
+                    data: actions,
                   },
                 },
               },
@@ -560,7 +556,7 @@ export const createRulesOnboardingAction = actionClient
           rules.push(
             `${promptFileInstructions}${
               categoryAction === "label_archive" ? " and archive them" : ""
-            }.`,
+            }${digest ? " and include them in digest emails" : ""}.`,
           );
         }
       }
@@ -592,6 +588,7 @@ export const createRulesOnboardingAction = actionClient
           "Newsletter",
           SystemType.NEWSLETTER,
           emailAccountId,
+          newsletterDigest,
         );
       } else {
         deleteRule(SystemType.NEWSLETTER, emailAccountId);
@@ -608,6 +605,7 @@ export const createRulesOnboardingAction = actionClient
           "Marketing",
           SystemType.MARKETING,
           emailAccountId,
+          marketingDigest,
         );
       } else {
         deleteRule(SystemType.MARKETING, emailAccountId);
@@ -624,6 +622,7 @@ export const createRulesOnboardingAction = actionClient
           "Calendar",
           SystemType.CALENDAR,
           emailAccountId,
+          calendarDigest,
         );
       } else {
         deleteRule(SystemType.CALENDAR, emailAccountId);
@@ -640,6 +639,7 @@ export const createRulesOnboardingAction = actionClient
           "Receipt",
           SystemType.RECEIPT,
           emailAccountId,
+          receiptDigest,
         );
       } else {
         deleteRule(SystemType.RECEIPT, emailAccountId);
@@ -656,6 +656,7 @@ export const createRulesOnboardingAction = actionClient
           "Notification",
           SystemType.NOTIFICATION,
           emailAccountId,
+          notificationDigest,
         );
       } else {
         deleteRule(SystemType.NOTIFICATION, emailAccountId);
