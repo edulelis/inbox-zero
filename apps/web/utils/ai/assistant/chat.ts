@@ -13,6 +13,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { chatCompletionStream } from "@/utils/llms";
+import { filterNullProperties } from "@/utils";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -27,15 +28,14 @@ const updateRuleConditionSchema = z.object({
     aiInstructions: z.string().optional(),
     static: z
       .object({
-        from: z.string().optional(),
-        to: z.string().optional(),
-        subject: z.string().optional(),
-        body: z.string().optional(),
+        from: z.string().nullable(),
+        to: z.string().nullable(),
+        subject: z.string().nullable(),
       })
-      .optional(),
+      .nullable(),
     conditionalOperator: z
       .enum([LogicalOperator.AND, LogicalOperator.OR])
-      .optional(),
+      .nullable(),
   }),
 });
 export type UpdateRuleConditionSchema = z.infer<
@@ -74,22 +74,24 @@ export type UpdateRuleActionsSchema = z.infer<typeof updateRuleActionsSchema>;
 // Schema for updating learned patterns
 const updateLearnedPatternsSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
-  learnedPatterns: z.array(
-    z.object({
-      include: z
-        .object({
-          from: z.string().optional(),
-          subject: z.string().optional(),
-        })
-        .optional(),
-      exclude: z
-        .object({
-          from: z.string().optional(),
-          subject: z.string().optional(),
-        })
-        .optional(),
-    }),
-  ),
+  learnedPatterns: z
+    .array(
+      z.object({
+        include: z
+          .object({
+            from: z.string().optional(),
+            subject: z.string().optional(),
+          })
+          .optional(),
+        exclude: z
+          .object({
+            from: z.string().optional(),
+            subject: z.string().optional(),
+          })
+          .optional(),
+      }),
+    )
+    .min(1, "At least one learned pattern is required"),
 });
 export type UpdateLearnedPatternsSchema = z.infer<
   typeof updateLearnedPatternsSchema
@@ -148,7 +150,7 @@ You can use {{variables}} in the fields to insert AI generated content. For exam
 "Hi {{name}}, {{write a friendly reply}}, Best regards, Alice"
 
 Rule matching logic:
-- All static conditions (from, to, subject, body) use AND logic - meaning all static conditions must match
+- All static conditions (from, to, subject) use AND logic - meaning all static conditions must match
 - Top level conditions (AI instructions, static) can use either AND or OR logic, controlled by the "conditionalOperator" setting
 
 Best practices:
@@ -398,18 +400,120 @@ Examples:
             email: user.email,
           });
 
-          const [rules, emailAccount] = await Promise.all([
-            prisma.rule.findMany({ where: { emailAccountId } }),
-            prisma.emailAccount.findUnique({
-              where: { id: emailAccountId },
-              select: { about: true, coldEmailBlocker: true },
-            }),
-          ]);
+          const emailAccount = await prisma.emailAccount.findUnique({
+            where: { id: emailAccountId },
+            select: {
+              about: true,
+              coldEmailBlocker: true,
+              rules: {
+                select: {
+                  name: true,
+                  instructions: true,
+                  from: true,
+                  to: true,
+                  subject: true,
+                  conditionalOperator: true,
+                  enabled: true,
+                  automate: true,
+                  runOnThreads: true,
+                  actions: {
+                    select: {
+                      type: true,
+                      content: true,
+                      label: true,
+                      to: true,
+                      cc: true,
+                      bcc: true,
+                      subject: true,
+                      url: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
 
           return {
-            rules,
             about: emailAccount?.about || "Not set",
             coldEmailBlocker: emailAccount?.coldEmailBlocker || "Not set",
+            rules: emailAccount?.rules.map((rule) => {
+              const staticFilter = filterNullProperties({
+                from: rule.from,
+                to: rule.to,
+                subject: rule.subject,
+              });
+
+              const staticConditions =
+                Object.keys(staticFilter).length > 0 ? staticFilter : undefined;
+
+              return {
+                name: rule.name,
+                conditions: {
+                  aiInstructions: rule.instructions,
+                  static: staticConditions,
+                  // only need to show conditional operator if there are multiple conditions
+                  conditionalOperator:
+                    rule.instructions && staticConditions
+                      ? rule.conditionalOperator
+                      : undefined,
+                },
+                actions: rule.actions.map((action) => ({
+                  type: action.type,
+                  fields: filterNullProperties({
+                    label: action.label,
+                    content: action.content,
+                    to: action.to,
+                    cc: action.cc,
+                    bcc: action.bcc,
+                    subject: action.subject,
+                    url: action.url,
+                  }),
+                })),
+                enabled: rule.enabled,
+                automate: rule.automate,
+                runOnThreads: rule.runOnThreads,
+              };
+            }),
+          };
+        },
+      }),
+
+      get_learned_patterns: tool({
+        description: "Retrieve the learned patterns for a rule",
+        parameters: z.object({
+          ruleName: z
+            .string()
+            .describe("The name of the rule to get the learned patterns for"),
+        }),
+        execute: async ({ ruleName }) => {
+          trackToolCall({ tool: "get_learned_patterns", email: user.email });
+
+          const rule = await prisma.rule.findUnique({
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+            select: {
+              group: {
+                select: {
+                  items: {
+                    select: {
+                      type: true,
+                      value: true,
+                      exclude: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          if (!rule) {
+            return {
+              error:
+                "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+            };
+          }
+
+          return {
+            patterns: rule.group?.items,
           };
         },
       }),
@@ -482,8 +586,7 @@ Examples:
               from: condition.static?.from,
               to: condition.static?.to,
               subject: condition.static?.subject,
-              body: condition.static?.body,
-              conditionalOperator: condition.conditionalOperator,
+              conditionalOperator: condition.conditionalOperator ?? undefined,
             },
           });
 

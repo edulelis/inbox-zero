@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import {
   createRuleBody,
   updateRuleBody,
@@ -42,7 +43,6 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
-import { after } from "next/server";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -110,7 +110,7 @@ export const createRuleAction = actionClient
           include: { actions: true, categoryFilters: true, group: true },
         });
 
-        await updatePromptFileOnRuleCreated({ emailAccountId, rule });
+        after(() => updatePromptFileOnRuleCreated({ emailAccountId, rule }));
 
         return { rule };
       } catch (error) {
@@ -238,14 +238,16 @@ export const updateRuleAction = actionClient
         ]);
 
         // update prompt file
-        await updatePromptFileOnRuleUpdated({
-          emailAccountId,
-          currentRule,
-          updatedRule,
-        });
+        after(() =>
+          updatePromptFileOnRuleUpdated({
+            emailAccountId,
+            currentRule,
+            updatedRule,
+          }),
+        );
 
-        revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
-        revalidatePath(prefixPath(emailAccountId, "/automation"));
+        revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
+        revalidatePath(prefixPath(emailAccountId, "/assistant"));
 
         return { rule: updatedRule };
       } catch (error) {
@@ -275,15 +277,17 @@ export const updateRuleInstructionsAction = actionClient
       });
       if (!currentRule) return { error: "Rule not found" };
 
-      await updateRuleInstructionsAndPromptFile({
-        emailAccountId,
-        ruleId: id,
-        instructions,
-        currentRule,
-      });
+      after(() =>
+        updateRuleInstructionsAndPromptFile({
+          emailAccountId,
+          ruleId: id,
+          instructions,
+          currentRule,
+        }),
+      );
 
-      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
-      revalidatePath(prefixPath(emailAccountId, "/automation"));
+      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, "/assistant"));
     },
   );
 
@@ -302,8 +306,8 @@ export const updateRuleSettingsAction = actionClient
         data: { instructions },
       });
 
-      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
-      revalidatePath(prefixPath(emailAccountId, "/automation"));
+      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, "/assistant"));
       revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
     },
   );
@@ -334,8 +338,8 @@ export const enableDraftRepliesAction = actionClient
       });
     }
 
-    revalidatePath(prefixPath(emailAccountId, `/automation/rule/${rule.id}`));
-    revalidatePath(prefixPath(emailAccountId, "/automation"));
+    revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${rule.id}`));
+    revalidatePath(prefixPath(emailAccountId, "/assistant"));
     revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
   });
 
@@ -358,7 +362,7 @@ export const deleteRuleAction = actionClient
         groupId: rule.groupId,
       });
 
-      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
 
       after(async () => {
         const emailAccount = await prisma.emailAccount.findUnique({

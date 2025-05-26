@@ -10,7 +10,7 @@ import type {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EyeIcon, SparklesIcon, TrashIcon } from "lucide-react";
-import { ActionBadges } from "@/app/(app)/[emailAccountId]/automation/Rules";
+import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { deleteRuleAction } from "@/utils/actions/rule";
@@ -29,6 +29,8 @@ export function ToolCard({
   switch (toolName) {
     case "get_user_rules_and_settings":
       return <BasicInfo text="Read rules and settings" />;
+    case "get_learned_patterns":
+      return <BasicInfo text={`Read learned patterns for ${args.ruleName}`} />;
     case "create_rule":
       return <CreatedRule args={args as CreateRuleSchema} ruleId={ruleId} />;
     case "update_rule_conditions":
@@ -187,9 +189,16 @@ function UpdatedRuleConditions({
   args: UpdateRuleConditionSchema;
   ruleId: string;
 }) {
+  const staticConditions =
+    args.condition.static?.from ||
+    args.condition.static?.to ||
+    args.condition.static?.subject
+      ? args.condition.static
+      : null;
+
   const conditionsArray = [
     args.condition.aiInstructions,
-    args.condition.static,
+    staticConditions,
   ].filter(Boolean);
 
   return (
@@ -223,9 +232,6 @@ function UpdatedRuleConditions({
               )}
               {args.condition.static.subject && (
                 <li>Subject: {args.condition.static.subject}</li>
-              )}
-              {args.condition.static.body && (
-                <li>Body: {args.condition.static.body}</li>
               )}
             </ul>
           </div>

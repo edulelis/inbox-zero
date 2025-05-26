@@ -1,12 +1,18 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
 import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { toast } from "sonner";
-import { HistoryIcon, Loader2 } from "lucide-react";
+import {
+  FileIcon,
+  HistoryIcon,
+  Loader2,
+  MessageCircleIcon,
+  PlusIcon,
+} from "lucide-react";
 import { useQueryState } from "nuqs";
 import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
@@ -14,7 +20,7 @@ import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { ResizableHandle } from "@/components/ui/resizable";
 import { ResizablePanelGroup } from "@/components/ui/resizable";
 import { ResizablePanel } from "@/components/ui/resizable";
-import { AssistantTabs } from "@/app/(app)/[emailAccountId]/automation/AssistantTabs";
+import { AssistantTabs } from "@/app/(app)/[emailAccountId]/assistant/AssistantTabs";
 import { ChatProvider } from "./ChatContext";
 import { SWRProvider } from "@/providers/SWRProvider";
 import { Button } from "@/components/ui/button";
@@ -29,6 +35,12 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
+import { Tooltip } from "@/components/Tooltip";
+import {
+  PromptFile,
+  RulesPrompt,
+} from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -37,16 +49,31 @@ import { useIsMobile } from "@/hooks/use-mobile";
 // We then re-enable the regular SWRProvider in the AssistantTabs component
 // AI SDK v5 won't use SWR anymore so we can remove this workaround
 
+const MAX_MESSAGES = 20;
+
 type ChatProps = {
   emailAccountId: string;
 };
 
 export function Chat(props: ChatProps) {
+  const [chatId, setChatId] = useQueryState("chatId");
+
+  useEffect(() => {
+    if (!chatId) {
+      setChatId(generateUUID());
+    }
+  }, [chatId, setChatId]);
+
+  if (!chatId) return null;
+
+  return <ChatWithEmptySWR {...props} chatId={chatId} />;
+}
+
+function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
   // Use parent SWR config for mutate
   const { mutate } = useSWRConfig();
 
-  const [chatId] = useQueryState("chatId");
-  const { data } = useChatMessages(chatId ?? undefined);
+  const { data } = useChatMessages(props.chatId);
 
   return (
     <SWRConfig
@@ -58,7 +85,7 @@ export function Chat(props: ChatProps) {
         {...props}
         mutate={mutate}
         initialMessages={data ? convertToUIMessages(data) : []}
-        chatId={chatId || undefined}
+        chatId={props.chatId}
       />
     </SWRConfig>
   );
@@ -70,9 +97,9 @@ function ChatInner({
   emailAccountId,
   mutate,
 }: ChatProps & {
-  chatId?: string;
-  mutate: ScopedMutator;
+  chatId: string;
   initialMessages: Array<UIMessage>;
+  mutate: ScopedMutator;
 }) {
   const chat = useChat({
     id: chatId,
@@ -106,7 +133,7 @@ function ChatInner({
         className="flex-grow"
       >
         <ResizablePanel className="overflow-y-auto">
-          <ChatUI chat={chat} chatId={chatId} />
+          <ChatUI chat={chat} />
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel className="overflow-hidden">
@@ -120,13 +147,7 @@ function ChatInner({
   );
 }
 
-function ChatUI({
-  chat,
-  chatId,
-}: {
-  chat: ReturnType<typeof useChat>;
-  chatId?: string;
-}) {
+function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
   const {
     messages,
     setMessages,
@@ -138,53 +159,108 @@ function ChatUI({
     reload,
   } = chat;
 
+  const [mode, setMode] = useQueryState("mode");
+
+  const isDocumentMode = mode === "document";
+
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
-      <div className="flex items-center justify-end px-2 pt-2">
-        <SWRProvider>
-          <ChatHistoryDropdown />
-        </SWRProvider>
+      <div className="flex items-center justify-between px-2 pt-2">
+        <div>
+          {isDocumentMode ? (
+            <Tooltip content="Switch to chat mode">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setMode("chat")}
+              >
+                <MessageCircleIcon className="size-5" />
+                <span className="sr-only">Switch to chat mode</span>
+              </Button>
+            </Tooltip>
+          ) : (
+            <Tooltip content="Switch to the old document mode">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setMode("document")}
+              >
+                <FileIcon className="size-5" />
+                <span className="sr-only">Switch to the old document mode</span>
+              </Button>
+            </Tooltip>
+          )}
+
+          {!isDocumentMode && messages.length > MAX_MESSAGES && (
+            <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
+              The chat is too long. Please start a new conversation.
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1">
+          {!isDocumentMode && (
+            <>
+              <NewChatButton />
+              <ExamplesDialog setInput={setInput} />
+              <SWRProvider>
+                <ChatHistoryDropdown />
+              </SWRProvider>
+            </>
+          )}
+        </div>
       </div>
-      <Messages
-        status={status}
-        messages={messages}
-        setMessages={setMessages}
-        setInput={setInput}
-        reload={reload}
-        isArtifactVisible={false}
-      />
 
-      <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
-        <MultimodalInput
-          chatId={chatId}
-          input={input}
-          setInput={setInput}
-          handleSubmit={handleSubmit}
-          status={status}
-          stop={stop}
-          // attachments={attachments}
-          // setAttachments={setAttachments}
-          // messages={messages}
-          setMessages={setMessages}
-          // append={append}
-        />
-      </form>
+      {isDocumentMode ? (
+        <SWRProvider>
+          <div className="p-2">
+            <PromptFile />
+          </div>
+        </SWRProvider>
+      ) : (
+        <>
+          <Messages
+            status={status}
+            messages={messages}
+            setMessages={setMessages}
+            setInput={setInput}
+            reload={reload}
+            isArtifactVisible={false}
+          />
 
-      {/* <Artifact
-        chatId={id}
-        input={input}
-        setInput={setInput}
-        handleSubmit={handleSubmit}
-        status={status}
-        stop={stop}
-        attachments={attachments}
-        setAttachments={setAttachments}
-        append={append}
-        messages={messages}
-        setMessages={setMessages}
-        reload={reload}
-      /> */}
+          <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
+            <MultimodalInput
+              // chatId={chatId}
+              input={input}
+              setInput={setInput}
+              handleSubmit={handleSubmit}
+              status={status}
+              stop={stop}
+              // attachments={attachments}
+              // setAttachments={setAttachments}
+              // messages={messages}
+              setMessages={setMessages}
+              // append={append}
+            />
+          </form>
+        </>
+      )}
     </div>
+  );
+}
+
+function NewChatButton() {
+  const [_chatId, setChatId] = useQueryState("chatId");
+
+  const handleNewChat = () => setChatId(null);
+
+  return (
+    <Tooltip content="Start a new conversation">
+      <Button variant="ghost" size="icon" onClick={handleNewChat}>
+        <PlusIcon className="size-5" />
+        <span className="sr-only">New Chat</span>
+      </Button>
+    </Tooltip>
   );
 }
 
@@ -195,17 +271,19 @@ function ChatHistoryDropdown() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          onMouseEnter={() => setShouldLoadChats(true)}
-          onClick={() => mutate()}
-        >
-          <HistoryIcon className="size-5" />
-          <span className="sr-only">Chat History</span>
-        </Button>
-      </DropdownMenuTrigger>
+      <Tooltip content="View previous conversations">
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onMouseEnter={() => setShouldLoadChats(true)}
+            onClick={() => mutate()}
+          >
+            <HistoryIcon className="size-5" />
+            <span className="sr-only">Chat History</span>
+          </Button>
+        </DropdownMenuTrigger>
+      </Tooltip>
       <DropdownMenuContent align="end">
         <LoadingContent
           loading={isLoading}
