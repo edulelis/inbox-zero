@@ -6,6 +6,7 @@ import {
   ColdEmailSetting,
   SystemType,
   type Prisma,
+  Frequency,
 } from "@prisma/client";
 import type { CategoryAction } from "@/utils/actions/rule.validation";
 
@@ -65,40 +66,13 @@ async function getUserPreferences({
   if (!emailAccount) return undefined;
 
   return {
-    toReply: {
-      action: getToReplySetting(emailAccount.rules) || "label",
-      digest: false,
-    },
-    coldEmail: {
-      action:
-        getColdEmailSetting(emailAccount.coldEmailBlocker) || "label_archive",
-      digest: false,
-    },
-    newsletter: {
-      action:
-        getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules) || "label",
-      digest: true,
-    },
-    marketing: {
-      action:
-        getRuleSetting(SystemType.MARKETING, emailAccount.rules) ||
-        "label_archive",
-      digest: true,
-    },
-    calendar: {
-      action:
-        getRuleSetting(SystemType.CALENDAR, emailAccount.rules) || "label",
-      digest: false,
-    },
-    receipt: {
-      action: getRuleSetting(SystemType.RECEIPT, emailAccount.rules) || "label",
-      digest: false,
-    },
-    notification: {
-      action:
-        getRuleSetting(SystemType.NOTIFICATION, emailAccount.rules) || "label",
-      digest: false,
-    },
+    toReply: getToReplySetting(emailAccount.rules),
+    coldEmail: getColdEmailSetting(emailAccount.coldEmailBlocker),
+    newsletter: getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules),
+    marketing: getRuleSetting(SystemType.MARKETING, emailAccount.rules),
+    calendar: getRuleSetting(SystemType.CALENDAR, emailAccount.rules),
+    receipt: getRuleSetting(SystemType.RECEIPT, emailAccount.rules),
+    notification: getRuleSetting(SystemType.NOTIFICATION, emailAccount.rules),
   };
 }
 
@@ -109,6 +83,17 @@ function getToReplySetting(
   const rule = rules.find((rule) =>
     rule.actions.some((action) => action.type === ActionType.TRACK_THREAD),
   );
+
+  const digest = rules.find((rule) =>
+    rule.actions.some((action) => action.type === ActionType.DIGEST),
+  );
+  if (digest) return "label_digest";
+
+  const archive = rules.find((rule) =>
+    rule.actions.some((action) => action.type === ActionType.ARCHIVE),
+  );
+  if (archive) return "label_archive";
+
   if (rule) return "label";
   return "none";
 }
@@ -120,6 +105,16 @@ function getRuleSetting(
   const rule = rules?.find((rule) => rule.systemType === systemType);
   if (!rule) return undefined;
 
+  if (
+    rule.actions.some((action) => action.type === ActionType.ARCHIVE) &&
+    rule.actions.some((action) => action.type === ActionType.DIGEST)
+  )
+    return "label_archive_digest";
+  if (
+    rule.actions.some((action) => action.type === ActionType.DIGEST) &&
+    rule.actions.some((action) => action.type === ActionType.LABEL)
+  )
+    return "label_digest";
   if (rule.actions.some((action) => action.type === ActionType.ARCHIVE))
     return "label_archive";
   if (rule.actions.some((action) => action.type === ActionType.LABEL))
@@ -133,9 +128,14 @@ function getColdEmailSetting(
   if (!setting) return undefined;
 
   switch (setting) {
+    case ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL_AND_DIGEST:
+    case ColdEmailSetting.ARCHIVE_AND_LABEL_AND_DIGEST:
+      return "label_archive_digest";
     case ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL:
     case ColdEmailSetting.ARCHIVE_AND_LABEL:
       return "label_archive";
+    case ColdEmailSetting.LABEL_AND_DIGEST:
+      return "label_digest";
     case ColdEmailSetting.LABEL:
       return "label";
     default:

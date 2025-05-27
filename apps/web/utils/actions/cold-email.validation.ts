@@ -20,8 +20,11 @@ export const updateColdEmailSettingsBody = z.object({
       ColdEmailSetting.DISABLED,
       ColdEmailSetting.LIST,
       ColdEmailSetting.LABEL,
+      ColdEmailSetting.LABEL_AND_DIGEST,
       ColdEmailSetting.ARCHIVE_AND_LABEL,
+      ColdEmailSetting.ARCHIVE_AND_LABEL_AND_DIGEST,
       ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
+      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL_AND_DIGEST,
     ])
     .nullish(),
 });
