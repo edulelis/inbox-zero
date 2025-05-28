@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
 import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -37,10 +37,8 @@ import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
-import {
-  PromptFile,
-  RulesPrompt,
-} from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
+import { PromptFile } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
+import { useSearchParams } from "next/navigation";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -75,6 +73,14 @@ function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
 
   const { data } = useChatMessages(props.chatId);
 
+  const searchParams = useSearchParams();
+
+  const initialInput = useMemo(() => {
+    const input = searchParams.get("input");
+    if (!input) return undefined;
+    return decodeURIComponent(input);
+  }, [searchParams]);
+
   return (
     <SWRConfig
       value={{
@@ -85,6 +91,7 @@ function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
         {...props}
         mutate={mutate}
         initialMessages={data ? convertToUIMessages(data) : []}
+        initialInput={initialInput}
         chatId={props.chatId}
       />
     </SWRConfig>
@@ -96,10 +103,12 @@ function ChatInner({
   initialMessages,
   emailAccountId,
   mutate,
+  initialInput,
 }: ChatProps & {
   chatId: string;
   initialMessages: Array<UIMessage>;
   mutate: ScopedMutator;
+  initialInput?: string;
 }) {
   const chat = useChat({
     id: chatId,
@@ -109,6 +118,7 @@ function ChatInner({
       message: body.messages.at(-1),
     }),
     initialMessages,
+    initialInput,
     experimental_throttle: 100,
     sendExtraMessageFields: true,
     generateId: generateUUID,
@@ -132,11 +142,11 @@ function ChatInner({
         direction={isMobile ? "vertical" : "horizontal"}
         className="flex-grow"
       >
-        <ResizablePanel className="overflow-y-auto">
+        <ResizablePanel className="overflow-y-auto" defaultSize={55}>
           <ChatUI chat={chat} />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel className="overflow-hidden">
+        <ResizablePanel defaultSize={45}>
           {/* re-enable the regular SWRProvider */}
           <SWRProvider>
             <AssistantTabs />
@@ -168,27 +178,19 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
       <div className="flex items-center justify-between px-2 pt-2">
         <div>
           {isDocumentMode ? (
-            <Tooltip content="Switch to chat mode">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMode("chat")}
-              >
-                <MessageCircleIcon className="size-5" />
-                <span className="sr-only">Switch to chat mode</span>
-              </Button>
-            </Tooltip>
+            <ModeButton
+              tooltip="Switch to chat mode"
+              icon={<MessageCircleIcon className="size-5" />}
+              label="Chat"
+              onClick={() => setMode("chat")}
+            />
           ) : (
-            <Tooltip content="Switch to the old document mode">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMode("document")}
-              >
-                <FileIcon className="size-5" />
-                <span className="sr-only">Switch to the old document mode</span>
-              </Button>
-            </Tooltip>
+            <ModeButton
+              tooltip="Switch to document mode"
+              icon={<FileIcon className="size-5" />}
+              label="Doc"
+              onClick={() => setMode("document")}
+            />
           )}
 
           {!isDocumentMode && messages.length > MAX_MESSAGES && (
@@ -213,7 +215,7 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
 
       {isDocumentMode ? (
         <SWRProvider>
-          <div className="p-2">
+          <div className="content-container py-2">
             <PromptFile />
           </div>
         </SWRProvider>
@@ -246,6 +248,27 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
         </>
       )}
     </div>
+  );
+}
+
+function ModeButton({
+  tooltip,
+  icon,
+  label,
+  onClick,
+}: {
+  tooltip: string;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip content={tooltip}>
+      <Button variant="ghost" size="sm" onClick={onClick}>
+        {icon}
+        <span className="ml-2">{label}</span>
+      </Button>
+    </Tooltip>
   );
 }
 

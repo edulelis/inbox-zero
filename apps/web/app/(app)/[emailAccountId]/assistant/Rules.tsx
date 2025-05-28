@@ -41,7 +41,6 @@ import {
   setRuleEnabledAction,
 } from "@/utils/actions/ai-rule";
 import { deleteRuleAction } from "@/utils/actions/rule";
-import { Toggle } from "@/components/Toggle";
 import { conditionsToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
@@ -49,7 +48,6 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { useRules } from "@/hooks/useRules";
 import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
-import { ThreadsExplanation } from "@/app/(app)/[emailAccountId]/assistant/RuleForm";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
@@ -68,14 +66,17 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
 
   const { emailAccountId } = useAccount();
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
-  const { executeAsync: setRuleRunOnThreads } = useAction(
-    setRuleRunOnThreadsAction.bind(null, emailAccountId),
-  );
   const { executeAsync: setRuleEnabled } = useAction(
     setRuleEnabledAction.bind(null, emailAccountId),
+    {
+      onSettled: () => mutate(),
+    },
   );
   const { executeAsync: deleteRule } = useAction(
     deleteRuleAction.bind(null, emailAccountId),
+    {
+      onSettled: () => mutate(),
+    },
   );
 
   const baseRules: RulesResponse = useMemo(() => {
@@ -176,14 +177,14 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                   <TableHead>Name</TableHead>
                   {size === "md" && <TableHead>Condition</TableHead>}
                   <TableHead>Action</TableHead>
-                  {size === "md" && (
+                  {/* {size === "md" && (
                     <TableHead>
                       <div className="flex items-center justify-center gap-1">
                         <span>Threads</span>
                         <ThreadsExplanation size="sm" />
                       </div>
                     </TableHead>
-                  )}
+                  )} */}
                   <TableHead>
                     <span className="sr-only">User Actions</span>
                   </TableHead>
@@ -236,7 +237,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                       <TableCell>
                         <ActionBadges actions={rule.actions} />
                       </TableCell>
-                      {size === "md" && (
+                      {/* {size === "md" && (
                         <TableCell>
                           <div className="flex justify-center">
                             <Toggle
@@ -260,7 +261,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                             />
                           </div>
                         </TableCell>
-                      )}
+                      )} */}
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -435,7 +436,7 @@ export function ActionBadges({
   }[];
 }) {
   return (
-    <div className="flex flex-1 space-x-2">
+    <div className="flex flex-col gap-2">
       {actions.map((action) => {
         // Hidden for simplicity
         if (action.type === ActionType.TRACK_THREAD) return null;
@@ -444,7 +445,7 @@ export function ActionBadges({
           <Badge
             key={action.id}
             color={getActionColor(action.type)}
-            className="text-nowrap"
+            className="w-fit text-nowrap"
           >
             {capitalCase(action.type)}
             {action.label && `: ${action.label}`}

@@ -22,14 +22,20 @@ import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
-import { personas } from "@/app/(app)/[emailAccountId]/assistant/examples";
+import {
+  examplePrompts,
+  personas,
+} from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/assistant/ProcessingPromptFileDialog";
-import { AlertBasic } from "@/components/Alert";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { Label } from "@/components/ui/label";
+import { SectionHeader } from "@/components/Typography";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/utils";
+import { Notice } from "@/components/Notice";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();
@@ -53,20 +59,21 @@ export function RulesPrompt() {
     <>
       <LoadingContent loading={isLoading} error={error}>
         {data && (
-          <>
+          <div className="mt-2">
             <RulesPromptForm
               emailAccountId={emailAccountId}
               rulesPrompt={data.rulesPrompt}
               personaPrompt={personaPrompt}
               mutate={mutate}
               onOpenPersonaDialog={onOpenPersonaDialog}
+              showExamples
             />
             <AssistantOnboarding
               onComplete={() => {
                 if (!data.rulesPrompt) onOpenPersonaDialog();
               }}
             />
-          </>
+          </div>
         )}
       </LoadingContent>
       <PersonaDialog
@@ -84,12 +91,14 @@ function RulesPromptForm({
   personaPrompt,
   mutate,
   onOpenPersonaDialog,
+  showExamples,
 }: {
   emailAccountId: string;
   rulesPrompt: string | null;
   personaPrompt?: string;
   mutate: () => void;
   onOpenPersonaDialog: () => void;
+  showExamples?: boolean;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -200,6 +209,8 @@ function RulesPromptForm({
     [setValue, getValues],
   );
 
+  // const [showExamples, setShowExamples] = useState(false);
+
   return (
     <div>
       <ProcessingPromptFileDialog
@@ -211,29 +222,30 @@ function RulesPromptForm({
         }
       />
 
-      {showClearWarning && (
-        <AlertBasic
-          className="mb-2"
-          variant="blue"
-          title="Warning: Deleting text will remove or disable rules"
-          description="Add new rules at the end to keep your existing rules."
-        />
-      )}
+      <div
+        className={cn(showExamples && "grid grid-cols-1 gap-4 sm:grid-cols-3")}
+      >
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className={showExamples ? "sm:col-span-2" : ""}
+        >
+          <Label className="font-cal text-lg leading-7">
+            How your assistant should handle incoming emails
+          </Label>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="space-y-4 sm:col-span-2">
-          <Input
-            className="min-h-[300px]"
-            registerProps={register("rulesPrompt", { required: true })}
-            name="rulesPrompt"
-            type="text"
-            autosizeTextarea
-            rows={30}
-            maxRows={50}
-            error={errors.rulesPrompt}
-            placeholder={`Here's an example of what your prompt might look like:
+          <div className="mt-1.5 space-y-4">
+            <Input
+              className="min-h-[300px] border-input"
+              registerProps={register("rulesPrompt", { required: true })}
+              name="rulesPrompt"
+              type="text"
+              autosizeTextarea
+              rows={30}
+              maxRows={50}
+              error={errors.rulesPrompt}
+              placeholder={`Here's an example of what your prompt might look like:
 
-${personas.other.prompt}
+${personas.other.promptArray.slice(0, 1).join("\n")}
 
 If someone asks about pricing, reply with:
 ---
@@ -243,70 +255,80 @@ I'm currently offering a 10% discount for the first 10 customers.
 
 Let me know if you're interested!
 ---`}
-          />
+            />
 
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="submit"
-              disabled={isSubmitting || isGenerating}
-              loading={isSubmitting}
-            >
-              Save
-            </Button>
-
-            <Button variant="outline" onClick={onOpenPersonaDialog}>
-              <UserPenIcon className="mr-2 size-4" />
-              Choose persona
-            </Button>
-
-            <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
+            <div className="flex flex-wrap gap-2">
               <Button
-                type="button"
-                variant="outline"
+                type="submit"
                 disabled={isSubmitting || isGenerating}
-                onClick={async () => {
-                  if (isSubmitting || isGenerating) return;
-                  toast.promise(
-                    async () => {
-                      setIsGenerating(true);
-                      const result = await generateRulesPromptAction(
-                        emailAccountId,
-                        {},
-                      );
-
-                      if (result?.serverError) {
-                        setIsGenerating(false);
-                        throw new Error(result.serverError);
-                      }
-
-                      const currentPrompt = getValues("rulesPrompt");
-                      const updatedPrompt = currentPrompt
-                        ? `${currentPrompt}\n\n${result?.data?.rulesPrompt}`
-                        : result?.data?.rulesPrompt;
-                      setValue("rulesPrompt", updatedPrompt?.trim() || "");
-
-                      setIsGenerating(false);
-
-                      return result;
-                    },
-                    {
-                      loading: "Generating prompt...",
-                      success: "Prompt generated successfully!",
-                      error: (err) => {
-                        return `Error generating prompt: ${err.message}`;
-                      },
-                    },
-                  );
-                }}
-                loading={isGenerating}
+                loading={isSubmitting}
               >
-                <SparklesIcon className="mr-2 size-4" />
-                Give me ideas
+                Save
               </Button>
-            </Tooltip>
+
+              <Button variant="outline" onClick={onOpenPersonaDialog}>
+                <UserPenIcon className="mr-2 size-4" />
+                Choose persona
+              </Button>
+
+              <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting || isGenerating}
+                  onClick={async () => {
+                    if (isSubmitting || isGenerating) return;
+                    toast.promise(
+                      async () => {
+                        setIsGenerating(true);
+                        const result = await generateRulesPromptAction(
+                          emailAccountId,
+                          {},
+                        );
+
+                        if (result?.serverError) {
+                          setIsGenerating(false);
+                          throw new Error(result.serverError);
+                        }
+
+                        const currentPrompt = getValues("rulesPrompt");
+                        const updatedPrompt = currentPrompt
+                          ? `${currentPrompt}\n\n${result?.data?.rulesPrompt}`
+                          : result?.data?.rulesPrompt;
+                        setValue("rulesPrompt", updatedPrompt?.trim() || "");
+
+                        setIsGenerating(false);
+
+                        return result;
+                      },
+                      {
+                        loading: "Generating prompt...",
+                        success: "Prompt generated successfully!",
+                        error: (err) => {
+                          return `Error generating prompt: ${err.message}`;
+                        },
+                      },
+                    );
+                  }}
+                  loading={isGenerating}
+                >
+                  <SparklesIcon className="mr-2 size-4" />
+                  Give me ideas
+                </Button>
+              </Tooltip>
+            </div>
+
+            {showClearWarning && (
+              <Notice>
+                <strong>Note:</strong> Deleting text will delete rules. Add new
+                rules at the end to keep your existing rules.
+              </Notice>
+            )}
           </div>
-        </div>
-      </form>
+        </form>
+
+        {showExamples && <Examples onSelect={addExamplePrompt} />}
+      </div>
     </div>
   );
 }
@@ -330,18 +352,13 @@ export function PromptFile() {
     <LoadingContent loading={isLoading} error={error}>
       {data && (
         <>
-          <Label>
-            How your AI personal assistant should handle incoming emails
-          </Label>
-          <div className="mt-1">
-            <RulesPromptForm
-              emailAccountId={emailAccountId}
-              rulesPrompt={data.rulesPrompt}
-              personaPrompt={personaPrompt}
-              onOpenPersonaDialog={() => setIsModalOpen(true)}
-              mutate={mutate}
-            />
-          </div>
+          <RulesPromptForm
+            emailAccountId={emailAccountId}
+            rulesPrompt={data.rulesPrompt}
+            personaPrompt={personaPrompt}
+            onOpenPersonaDialog={() => setIsModalOpen(true)}
+            mutate={mutate}
+          />
           <PersonaDialog
             isOpen={isModalOpen}
             setIsOpen={setIsModalOpen}
@@ -350,5 +367,28 @@ export function PromptFile() {
         </>
       )}
     </LoadingContent>
+  );
+}
+
+function Examples({ onSelect }: { onSelect: (example: string) => void }) {
+  return (
+    <div>
+      <SectionHeader className="text-lg">Examples</SectionHeader>
+
+      <ScrollArea className="mt-1.5 sm:h-[75vh] sm:max-h-[75vh]">
+        <div className="grid grid-cols-1 gap-2">
+          {examplePrompts.map((example) => (
+            <Button
+              key={example}
+              variant="outline"
+              onClick={() => onSelect(example)}
+              className="h-auto w-full justify-start text-wrap py-2 text-left"
+            >
+              {example}
+            </Button>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
