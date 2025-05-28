@@ -163,22 +163,22 @@ export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
 export const enableDraftRepliesBody = z.object({ enable: z.boolean() });
 export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
 
-const categoryAction = z.enum([
-  "label",
-  "label_archive",
-  "label_digest",
-  "label_archive_digest",
-  "none",
-]);
+const categoryAction = z.enum(["label", "label_archive", "none"]);
 export type CategoryAction = z.infer<typeof categoryAction>;
+
+const categoryConfig = z.object({
+  action: categoryAction.optional(),
+  hasDigest: z.boolean().optional(),
+});
+
 export const createRulesOnboardingBody = z.object({
-  toReply: categoryAction.optional(),
-  newsletter: categoryAction.optional(),
-  marketing: categoryAction.optional(),
-  calendar: categoryAction.optional(),
-  receipt: categoryAction.optional(),
-  notification: categoryAction.optional(),
-  coldEmail: categoryAction.optional(),
+  toReply: categoryConfig,
+  newsletter: categoryConfig,
+  marketing: categoryConfig,
+  calendar: categoryConfig,
+  receipt: categoryConfig,
+  coldEmail: categoryConfig,
+  notification: categoryConfig,
 });
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody

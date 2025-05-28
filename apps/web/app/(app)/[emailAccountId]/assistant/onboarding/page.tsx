@@ -6,9 +6,13 @@ import {
   ColdEmailSetting,
   SystemType,
   type Prisma,
-  Frequency,
 } from "@prisma/client";
 import type { CategoryAction } from "@/utils/actions/rule.validation";
+
+type CategoryConfig = {
+  action: CategoryAction | undefined;
+  hasDigest: boolean | undefined;
+};
 
 export default async function OnboardingPage({
   params,
@@ -61,13 +65,17 @@ async function getUserPreferences({
         },
       },
       coldEmailBlocker: true,
+      coldEmailDigest: true,
     },
   });
   if (!emailAccount) return undefined;
 
   return {
-    toReply: getToReplySetting(emailAccount.rules),
-    coldEmail: getColdEmailSetting(emailAccount.coldEmailBlocker),
+    toReply: getToReplySetting(SystemType.TO_REPLY, emailAccount.rules),
+    coldEmail: getColdEmailSetting(
+      emailAccount.coldEmailBlocker,
+      emailAccount.coldEmailDigest,
+    ),
     newsletter: getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules),
     marketing: getRuleSetting(SystemType.MARKETING, emailAccount.rules),
     calendar: getRuleSetting(SystemType.CALENDAR, emailAccount.rules),
@@ -77,68 +85,52 @@ async function getUserPreferences({
 }
 
 function getToReplySetting(
+  systemType: SystemType,
   rules: UserPreferences["rules"],
-): CategoryAction | undefined {
+): CategoryConfig | undefined {
   if (!rules.length) return undefined;
   const rule = rules.find((rule) =>
     rule.actions.some((action) => action.type === ActionType.TRACK_THREAD),
   );
-
-  const digest = rules.find((rule) =>
-    rule.actions.some((action) => action.type === ActionType.DIGEST),
+  const replyRules = rules.find((rule) => rule.systemType === systemType);
+  const hasDigest = replyRules?.actions.some(
+    (action) => action.type === ActionType.DIGEST,
   );
-  if (digest) return "label_digest";
 
-  const archive = rules.find((rule) =>
-    rule.actions.some((action) => action.type === ActionType.ARCHIVE),
-  );
-  if (archive) return "label_archive";
-
-  if (rule) return "label";
-  return "none";
+  if (rule) return { action: "label", hasDigest };
+  return { action: "none", hasDigest };
 }
 
 function getRuleSetting(
   systemType: SystemType,
   rules?: UserPreferences["rules"],
-): CategoryAction | undefined {
+): CategoryConfig | undefined {
   const rule = rules?.find((rule) => rule.systemType === systemType);
+  const hasDigest = rule?.actions.some(
+    (action) => action.type === ActionType.DIGEST,
+  );
   if (!rule) return undefined;
 
-  if (
-    rule.actions.some((action) => action.type === ActionType.ARCHIVE) &&
-    rule.actions.some((action) => action.type === ActionType.DIGEST)
-  )
-    return "label_archive_digest";
-  if (
-    rule.actions.some((action) => action.type === ActionType.DIGEST) &&
-    rule.actions.some((action) => action.type === ActionType.LABEL)
-  )
-    return "label_digest";
   if (rule.actions.some((action) => action.type === ActionType.ARCHIVE))
-    return "label_archive";
+    return { action: "label_archive", hasDigest };
   if (rule.actions.some((action) => action.type === ActionType.LABEL))
-    return "label";
-  return "none";
+    return { action: "label", hasDigest };
+  return { action: "none", hasDigest };
 }
 
 function getColdEmailSetting(
   setting?: ColdEmailSetting | null,
-): CategoryAction | undefined {
+  hasDigest?: boolean,
+): CategoryConfig | undefined {
   if (!setting) return undefined;
 
   switch (setting) {
-    case ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL_AND_DIGEST:
-    case ColdEmailSetting.ARCHIVE_AND_LABEL_AND_DIGEST:
-      return "label_archive_digest";
     case ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL:
     case ColdEmailSetting.ARCHIVE_AND_LABEL:
-      return "label_archive";
-    case ColdEmailSetting.LABEL_AND_DIGEST:
-      return "label_digest";
+      return { action: "label_archive", hasDigest };
     case ColdEmailSetting.LABEL:
-      return "label";
+      return { action: "label", hasDigest };
     default:
-      return "none";
+      return { action: "none", hasDigest };
   }
 }

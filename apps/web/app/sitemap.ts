@@ -4,8 +4,17 @@ import type { MetadataRoute } from "next";
 import { unstable_noStore } from "next/cache";
 
 async function getBlogPosts() {
-  // Always return empty array to bypass Sanity
-  return [];
+  // Skip Sanity fetch during build with dummy credentials
+  if (process.env.NEXT_PUBLIC_SANITY_PROJECT_ID === "project123") {
+    return []; // Return empty array directly
+  }
+  const posts = await sanityFetch<{ slug: string; date: string }[]>({
+    query: postSlugsQuery,
+  });
+  return posts.map((post) => ({
+    url: `https://www.getinboxzero.com/blog/post/${post.slug}`,
+    lastModified: new Date(post.date),
+  }));
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -39,7 +48,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: "https://www.getinboxzero.com/blog",
-      changeFrequency: "daily" as const,
+      changeFrequency: "daily",
       lastModified: new Date(),
       priority: 1,
     },

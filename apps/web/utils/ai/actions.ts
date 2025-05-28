@@ -75,6 +75,8 @@ export const runActionFunction = async (options: {
       return mark_read(opts);
     case ActionType.TRACK_THREAD:
       return track_thread(opts);
+    case ActionType.DIGEST:
+      return track_thread(opts);
     default:
       throw new Error(`Unknown action: ${action}`);
   }

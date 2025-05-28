@@ -98,6 +98,7 @@ model EmailAccount {
   summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
   coldEmailBlocker      ColdEmailSetting?
+  coldEmailDigest       Boolean           @default(false)
   coldEmailPrompt       String?
   rulesPrompt           String?
   outboundReplyTracking Boolean           @default(false)
@@ -126,7 +127,6 @@ model EmailAccount {
   emailMessages  EmailMessage[]
   emailTokens    EmailToken[]
   knowledge      Knowledge[]
-  digests        Digest[]
   chats          Chat[]
 
   @@index([lastSummaryEmailAt])
@@ -138,11 +138,6 @@ model UserFrequency {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  type      FrequencyType  // The type of frequency (PREDEFINED or CUSTOM)
-
-  predefinedValue Frequency? // For predefined frequencies (DAILY, WEEKLY, etc)
-  
-  // For custom frequencies
   intervalDays    Int?     // Total interval in days
   occurrences     Int?     // Number of times within the interval
   
@@ -151,11 +146,11 @@ model UserFrequency {
   // e.g., 0b1000001 means Sunday and Saturday
   daysOfWeek     Int?     // 0-127 (2^7 - 1)
   
-  // Time of day stored as DateTime for better timezone handling
+  // Time of day stored as DateTime
   // Only the time portion will be used when checking if it's time to send
   timeOfDay      DateTime?
   
-  emailAccountId String   // Relation to EmailAccount
+  emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId])
@@ -601,20 +596,6 @@ model DraftSendLog {
   @@index([executedActionId])
 }
 
-
-model Digest {
-  id             String   @id @default(cuid())
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  messageId      String
-  threadId       String
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([messageId, threadId, emailAccountId])
-  @@index([emailAccountId])
-}
-
 model Chat {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -683,11 +664,8 @@ enum ColdEmailSetting {
   DISABLED
   LIST
   LABEL
-  LABEL_AND_DIGEST
   ARCHIVE_AND_LABEL
-  ARCHIVE_AND_LABEL_AND_DIGEST
   ARCHIVE_AND_READ_AND_LABEL
-  ARCHIVE_AND_READ_AND_LABEL_AND_DIGEST
 }
 
 enum PremiumTier {
@@ -751,10 +729,4 @@ enum SystemType {
   CALENDAR
   RECEIPT
   NOTIFICATION
-  COLD_EMAIL
-}
-
-enum FrequencyType {
-  PREDEFINED
-  CUSTOM
 }

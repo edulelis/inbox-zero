@@ -17,7 +17,13 @@ import {
 import { TypographyH3, TypographyP } from "@/components/Typography";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -25,10 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  CategoryAction,
-  createRulesOnboardingAction,
-} from "@/utils/actions/rule";
+import { Checkbox } from "@/components/ui/checkbox";
+import { createRulesOnboardingAction } from "@/utils/actions/rule";
 import {
   createRulesOnboardingBody,
   type CreateRulesOnboardingBody,
@@ -39,150 +43,8 @@ import {
   markOnboardingAsCompleted,
 } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
-import { Checkbox } from "@/components/Checkbox";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
-
-function DigestCheckbox({
-  value,
-  onChange,
-}: {
-  value: CategoryAction;
-  onChange: (value: CategoryAction) => void;
-}) {
-  const isDigest = value === "label_digest" || value === "label_archive_digest";
-  const baseValue =
-    value === "label_digest"
-      ? "label"
-      : value === "label_archive_digest"
-        ? "label_archive"
-        : value;
-
-  return (
-    <div className="flex items-center space-x-2">
-      <Checkbox
-        checked={isDigest}
-        onChange={(e) => {
-          if (e.target.checked) {
-            onChange(
-              baseValue === "label"
-                ? "label_digest"
-                : baseValue === "label_archive"
-                  ? "label_archive_digest"
-                  : baseValue,
-            );
-          } else {
-            onChange(baseValue);
-          }
-        }}
-      />
-      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-        Digest
-      </label>
-    </div>
-  );
-}
-
-function CategorySelect({
-  value,
-  onChange,
-}: {
-  value: CategoryAction;
-  onChange: (value: CategoryAction) => void;
-}) {
-  const isDigest = value === "label_digest" || value === "label_archive_digest";
-  const baseValue =
-    value === "label_digest"
-      ? "label"
-      : value === "label_archive_digest"
-        ? "label_archive"
-        : value;
-
-  return (
-    <Select
-      value={baseValue}
-      onValueChange={(newValue: string) => {
-        if (isDigest) {
-          onChange(
-            newValue === "label"
-              ? "label_digest"
-              : newValue === "label_archive"
-                ? "label_archive_digest"
-                : (newValue as CategoryAction),
-          );
-        } else {
-          onChange(newValue as CategoryAction);
-        }
-      }}
-    >
-      <SelectTrigger className="w-[180px]">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="label">Label</SelectItem>
-        <SelectItem value="label_archive">Label + Skip Inbox</SelectItem>
-        <SelectItem value="none">None</SelectItem>
-      </SelectContent>
-    </Select>
-  );
-}
-
-function CategoryCard({
-  id,
-  label,
-  icon,
-  form,
-  tooltipText,
-}: {
-  id: keyof CreateRulesOnboardingBody;
-  label: string;
-  icon: React.ReactNode;
-  form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
-  tooltipText?: string;
-}) {
-  const value = form.watch(id) as CategoryAction;
-
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-4 p-4">
-        {icon}
-        <div className="flex flex-1 items-center gap-2">
-          {label}
-          {tooltipText && (
-            <TooltipExplanation
-              text={tooltipText}
-              className="text-muted-foreground"
-            />
-          )}
-        </div>
-        <div className="ml-auto flex items-center gap-4">
-          <DigestCheckbox
-            value={value}
-            onChange={(newValue) => {
-              if (newValue === "digest") {
-                form.setValue(id, "label_digest");
-              } else {
-                form.setValue(id, newValue);
-              }
-            }}
-          />
-          <FormField
-            control={form.control}
-            name={id}
-            render={({ field }) => (
-              <FormItem>
-                <CategorySelect
-                  value={field.value as CategoryAction}
-                  onChange={field.onChange}
-                />
-              </FormItem>
-            )}
-          />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export function CategoriesSetup({
   emailAccountId,
@@ -196,13 +58,34 @@ export function CategoriesSetup({
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
     defaultValues: {
-      toReply: defaultValues?.toReply || "label",
-      newsletter: defaultValues?.newsletter || "label",
-      marketing: defaultValues?.marketing || "label_archive",
-      calendar: defaultValues?.calendar || "label",
-      receipt: defaultValues?.receipt || "label",
-      notification: defaultValues?.notification || "label",
-      coldEmail: defaultValues?.coldEmail || "label_archive",
+      toReply: {
+        action: defaultValues?.toReply?.action || "label",
+        hasDigest: defaultValues?.toReply?.hasDigest || false,
+      },
+      newsletter: {
+        action: defaultValues?.newsletter?.action || "label",
+        hasDigest: defaultValues?.newsletter?.hasDigest || false,
+      },
+      marketing: {
+        action: defaultValues?.marketing?.action || "label_archive",
+        hasDigest: defaultValues?.marketing?.hasDigest || false,
+      },
+      calendar: {
+        action: defaultValues?.calendar?.action || "label",
+        hasDigest: defaultValues?.calendar?.hasDigest || false,
+      },
+      receipt: {
+        action: defaultValues?.receipt?.action || "label",
+        hasDigest: defaultValues?.receipt?.hasDigest || false,
+      },
+      notification: {
+        action: defaultValues?.notification?.action || "label",
+        hasDigest: defaultValues?.notification?.hasDigest || false,
+      },
+      coldEmail: {
+        action: defaultValues?.coldEmail?.action || "label_archive",
+        hasDigest: defaultValues?.coldEmail?.hasDigest || false,
+      },
     },
   });
 
@@ -300,5 +183,102 @@ export function CategoriesSetup({
         </div>
       </form>
     </Form>
+  );
+}
+
+function CategoryCard({
+  id,
+  label,
+  icon,
+  form,
+  tooltipText,
+}: {
+  id: keyof CreateRulesOnboardingBody;
+  label: string;
+  icon: React.ReactNode;
+  form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
+  tooltipText?: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-4 p-4">
+        {icon}
+        <div className="flex flex-1 items-center gap-2">
+          {label}
+          {tooltipText && (
+            <TooltipExplanation
+              text={tooltipText}
+              className="text-muted-foreground"
+            />
+          )}
+        </div>
+        <div className="ml-auto flex items-center gap-4">
+          <FormField
+            control={form.control}
+            name={id}
+            render={({
+              field,
+            }: {
+              field: ControllerRenderProps<
+                CreateRulesOnboardingBody,
+                keyof CreateRulesOnboardingBody
+              >;
+            }) => (
+              <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={!!field.value?.hasDigest}
+                    onCheckedChange={(checked) => {
+                      field.onChange({
+                        ...field.value,
+                        hasDigest: checked,
+                      });
+                    }}
+                  />
+                </FormControl>
+                <FormLabel className="text-sm font-normal">Digest</FormLabel>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name={id}
+            render={({
+              field,
+            }: {
+              field: ControllerRenderProps<
+                CreateRulesOnboardingBody,
+                keyof CreateRulesOnboardingBody
+              >;
+            }) => (
+              <FormItem>
+                <Select
+                  onValueChange={(value) => {
+                    field.onChange({
+                      ...field.value,
+                      action: value,
+                    });
+                  }}
+                  defaultValue={field.value.action}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="label">Label</SelectItem>
+                    <SelectItem value="label_archive">
+                      Label + Skip Inbox
+                    </SelectItem>
+                    <SelectItem value="none">None</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
