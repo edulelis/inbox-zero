@@ -73,7 +73,7 @@ export const useNavigation = () => {
     () => [
       {
         name: "Assistant",
-        href: prefixPath(emailAccountId, "/assistant"),
+        href: prefixPath(emailAccountId, "/automation"),
         icon: SparklesIcon,
       },
       {
@@ -94,7 +94,7 @@ export const useNavigation = () => {
   const cleanItems: NavItem[] = useMemo(
     () => [
       {
-        name: "Unsubscribe",
+        name: "Bulk Unsubscribe",
         href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
@@ -248,7 +248,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ? [
             {
               name: "Back",
-              href: "/assistant",
+              href: "/automation",
               icon: ArrowLeftIcon,
             },
             ...bottomLinks.filter((l) => !l.hideInMail),

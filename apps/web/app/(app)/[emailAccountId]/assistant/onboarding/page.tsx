@@ -7,7 +7,10 @@ import {
   SystemType,
   type Prisma,
 } from "@prisma/client";
-import type { CategoryAction } from "@/utils/actions/rule.validation";
+import type {
+  CategoryAction,
+  CreateRulesOnboardingBody,
+} from "@/utils/actions/rule.validation";
 
 type CategoryConfig = {
   action: CategoryAction | undefined;
@@ -50,7 +53,7 @@ async function getUserPreferences({
   emailAccountId,
 }: {
   emailAccountId: string;
-}) {
+}): Promise<Partial<CreateRulesOnboardingBody> | undefined> {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
