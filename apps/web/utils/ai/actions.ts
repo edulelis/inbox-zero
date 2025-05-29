@@ -75,6 +75,10 @@ export const runActionFunction = async (options: {
       return mark_read(opts);
     case ActionType.TRACK_THREAD:
       return track_thread(opts);
+    case ActionType.DIGEST:
+      return track_thread(opts);
+    case ActionType.DIGEST:
+      return digest(opts);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
@@ -221,3 +225,5 @@ const track_thread: ActionFunction<any> = async ({
     logger.error("Failed to create reply tracker", { error });
   });
 };
+
+const digest: ActionFunction<any> = async ({ gmail, email }) => {};

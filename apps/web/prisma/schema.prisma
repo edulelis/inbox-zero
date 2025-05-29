@@ -98,10 +98,16 @@ model EmailAccount {
   summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
   coldEmailBlocker      ColdEmailSetting?
+  coldEmailDigest       Boolean           @default(false)
   coldEmailPrompt       String?
   rulesPrompt           String?
   outboundReplyTracking Boolean           @default(false)
   autoCategorizeSenders Boolean           @default(false)
+
+  // Digest email settings
+  digestFrequency   UserFrequency?
+  digestFrequencyId String?  @unique
+  lastDigestEmailAt DateTime?
 
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -124,6 +130,30 @@ model EmailAccount {
   chats          Chat[]
 
   @@index([lastSummaryEmailAt])
+  @@index([lastDigestEmailAt])
+}
+
+model UserFrequency {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intervalDays    Int?     // Total interval in days
+  occurrences     Int?     // Number of times within the interval
+  
+  // Bit mask for days of week (0b0000000 to 0b1111111)
+  // Each bit represents a day (Sunday to Saturday)
+  // e.g., 0b1000001 means Sunday and Saturday
+  daysOfWeek     Int?     // 0-127 (2^7 - 1)
+  
+  // Time of day stored as DateTime
+  // Only the time portion will be used when checking if it's time to send
+  timeOfDay      DateTime?
+  
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId])
 }
 
 model Premium {
@@ -604,6 +634,7 @@ enum ActionType {
   CALL_WEBHOOK
   MARK_READ
   TRACK_THREAD
+  DIGEST
   // SUMMARIZE
   // SNOOZE
   // ADD_TO_DO
@@ -612,7 +643,7 @@ enum ActionType {
 
 enum Frequency {
   NEVER
-  // DAILY
+  DAILY
   WEEKLY
   // MONTHLY
   // ANNUALLY
@@ -698,5 +729,4 @@ enum SystemType {
   CALENDAR
   RECEIPT
   NOTIFICATION
-  // COLD_EMAIL // handled separately. we may unify in the future
 }
