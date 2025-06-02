@@ -10,6 +10,8 @@ const navigation = {
     { name: "Open Source", href: "/github", target: "_blank" },
     { name: "OSS Friends", href: "/oss-friends" },
     { name: "Email Blaster", href: "/game" },
+    { name: "Email assistant for realtors", href: "/real-estate" },
+    { name: "Email assistant for influencers", href: "/influencer" },
   ],
   support: [
     { name: "Pricing", href: "/#pricing" },
@@ -115,7 +117,7 @@ export function Footer() {
           ))}
         </div>
         <p className="mt-10 text-center text-xs leading-5 text-gray-500">
-          &copy; {new Date().getFullYear()} Inbox Zero. All rights reserved.
+          &copy; {new Date().getFullYear()} Inbox Zero Inc. All rights reserved.
         </p>
       </div>
     </footer>
