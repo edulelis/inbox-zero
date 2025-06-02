@@ -8,9 +8,7 @@ import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
-import { getMessage } from "@/utils/gmail/message";
-import { parseMessage } from "@/utils/mail";
-import { getGmailClientWithRefresh } from "@/utils/gmail/client";
+import { camelCase } from "lodash";
 
 export const maxDuration = 60;
 
@@ -31,148 +29,73 @@ async function sendEmail({
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
-    include: {
-      account: {
-        select: {
-          access_token: true,
-          refresh_token: true,
-          expires_at: true,
-        },
-      },
-      rules: {
-        where: {
-          actions: {
-            some: {
-              type: "DIGEST",
-            },
-          },
-        },
-        include: {
-          actions: true,
-        },
-      },
-    },
   });
 
   if (!emailAccount) {
-    logger.error("Email account not found", loggerOptions);
-    return { success: false };
+    throw new Error("Email account not found");
   }
 
-  // Get all executed rules that should be included in the digest
+  // Get executed actions grouped by rules
   const executedRules = await prisma.executedRule.findMany({
     where: {
-      emailAccountId: emailAccount.id,
-      rule: {
-        actions: {
-          some: {
-            type: "DIGEST",
-          },
+      emailAccountId,
+      status: "APPLIED",
+      actionItems: {
+        some: {
+          type: "DIGEST",
         },
-      },
-      // Only include rules executed since the last digest
-      createdAt: {
-        gt: emailAccount.lastDigestEmailAt || new Date(0),
       },
     },
     include: {
-      rule: true,
-    },
-    orderBy: {
-      createdAt: "desc",
+      rule: {
+        select: {
+          name: true,
+        },
+      },
+      actionItems: {
+        where: {
+          type: "DIGEST",
+        },
+        select: {
+          content: true,
+          type: true,
+        },
+      },
     },
   });
 
-  // Get all email messages for these executed rules
-  const emailMessages = await prisma.emailMessage.findMany({
-    where: {
-      emailAccountId: emailAccount.id,
-      OR: executedRules.map((er) => ({
-        threadId: er.threadId,
-        messageId: er.messageId,
-      })),
-    },
-  });
-
-  // Get Gmail client
-  const gmail = await getGmailClientWithRefresh({
-    accessToken: emailAccount.account.access_token,
-    refreshToken: emailAccount.account.refresh_token || "",
-    expiresAt: emailAccount.account.expires_at ?? null,
-    emailAccountId: emailAccount.id,
-  });
-
-  // Get full message details from Gmail API
-  const messageDetails = await Promise.all(
-    emailMessages.map(async (email) => {
-      const message = await getMessage(email.messageId, gmail);
-      const parsedMessage = parseMessage(message);
-      return {
-        ...email,
-        subject: parsedMessage.headers.subject || "",
-      };
-    }),
-  );
-
-  // Group emails by category
-  const emailsByCategory = messageDetails.reduce(
-    (acc, email) => {
-      const executedRule = executedRules.find(
-        (er) =>
-          er.threadId === email.threadId && er.messageId === email.messageId,
-      );
-      const category = executedRule?.rule?.name || "Other";
-      if (!acc[category]) {
-        acc[category] = [];
+  // Group actions by rule name
+  const executedRulesByRule = executedRules.reduce(
+    (acc, executedRule) => {
+      const ruleName = camelCase(executedRule.rule?.name || "Unknown Rule");
+      if (!acc[ruleName]) {
+        acc[ruleName] = [];
       }
-      acc[category].push({
-        from: email.from,
-        subject: email.subject,
-        sentAt: email.date,
-        category,
-        messageId: email.messageId,
-        threadId: email.threadId,
-      });
+      acc[ruleName].push(...executedRule.actionItems);
       return acc;
     },
-    {} as Record<
-      string,
-      Array<{
-        from: string;
-        subject: string;
-        sentAt: Date;
-        category: string;
-        messageId: string;
-        threadId: string;
-      }>
-    >,
+    {} as Record<string, { content: string | null; type: string }[]>,
   );
-
-  const shouldSendEmail = Object.values(emailsByCategory).some(
-    (emails) => emails.length > 0,
-  );
-
-  logger.info("Sending digest email to user", {
-    ...loggerOptions,
-    shouldSendEmail,
-    categories: Object.keys(emailsByCategory),
-  });
-
-  if (!shouldSendEmail) {
-    return { success: true };
-  }
 
   const token = await createUnsubscribeToken({ emailAccountId });
+
+  console.log(executedRulesByRule);
 
   await Promise.all([
     sendDigestEmail({
       to: emailAccount.email,
       emailProps: {
+        newsletters: [{ from: "", subject: "", content: "" }],
+        receipts: [{ from: "", subject: "", content: "" }],
+        marketing: [{ from: "", subject: "", content: "" }],
+        calendar: [{ from: "", subject: "", content: "" }],
+        coldEmails: [{ from: "", subject: "", content: "" }],
+        notifications: [{ from: "", subject: "", content: "" }],
+        toReply: [{ from: "", subject: "", content: "" }],
+        ...executedRulesByRule,
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
-        frequency:
-          emailAccount.digestEmailFrequency === "DAILY" ? "DAILY" : "WEEKLY",
-        digestItems: Object.values(emailsByCategory).flat(),
         unsubscribeToken: token,
+        date: new Date(),
       },
     }),
     prisma.emailAccount.update({
@@ -220,6 +143,7 @@ export const POST = withError(async (request) => {
     await sendEmail({ emailAccountId });
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.log(error);
     logger.error("Error sending digest email", { error });
     captureException(error);
     return NextResponse.json(

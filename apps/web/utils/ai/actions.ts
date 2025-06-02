@@ -76,8 +76,6 @@ export const runActionFunction = async (options: {
     case ActionType.TRACK_THREAD:
       return track_thread(opts);
     case ActionType.DIGEST:
-      return track_thread(opts);
-    case ActionType.DIGEST:
       return digest(opts);
     default:
       throw new Error(`Unknown action: ${action}`);
@@ -226,4 +224,10 @@ const track_thread: ActionFunction<any> = async ({
   });
 };
 
-const digest: ActionFunction<any> = async ({ gmail, email }) => {};
+const digest: ActionFunction<any> = async ({ gmail, email, args }) => {
+  return {
+    content: email.textPlain?.slice(0, 100),
+    subject: email.headers.subject,
+    from: email.headers.from,
+  };
+};

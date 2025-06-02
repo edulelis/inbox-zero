@@ -31,7 +31,7 @@ const sendEmail = async ({
   const text = await render(react, { plainText: true });
 
   const result = await resend.emails.send({
-    from: "Inbox Zero <updates@transactional.getinboxzero.com>",
+    from: "Inbox Zero <updates@eduardolelis.com.br>",
     to: test ? "delivered@resend.dev" : to,
     subject,
     react,
@@ -114,7 +114,7 @@ export const sendDigestEmail = async ({
 }) => {
   sendEmail({
     to,
-    subject: `Your ${emailProps.frequency.toLowerCase()} email digest`,
+    subject: `Your email digest`,
     react: <DigestEmail {...emailProps} />,
     test,
     unsubscribeToken: emailProps.unsubscribeToken,

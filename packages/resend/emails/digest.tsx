@@ -19,77 +19,66 @@ import {
 export interface DigestEmailProps {
   baseUrl: string;
   unsubscribeToken: string;
-  newsletters: [
-    {
-      sender: string;
-      subject: string;
-      preview: string;
-    },
-  ];
-  receipts: [
-    {
-      merchant: string;
-      description: string;
-      amount: string;
-      time: string;
-    },
-  ];
-  marketing: [
-    {
-      sender: string;
-      subject: string;
-      preview: string;
-    },
-  ];
-  calendar: [
-    {
-      title: string;
-      time: string;
-      location: string;
-      organizer: string;
-    },
-  ];
-  coldEmails: [
-    {
-      sender: string;
-      subject: string;
-      company: string;
-    },
-  ];
-  notifications: [
-    {
-      app: string;
-      message: string;
-      time: string;
-    },
-  ];
-  toReply: [
-    {
-      sender: string;
-      subject: string;
-      received: string;
-      dueBy: string;
-    },
-  ];
+  date?: Date;
+  newsletters?: {
+    content: string;
+    subject: string;
+    from: string;
+  }[];
+  receipts?: {
+    content: string;
+    subject: string;
+    from: string;
+  }[];
+  marketing?: {
+    content: string;
+    subject: string;
+    from: string;
+  }[];
+  calendar?: {
+    content: string;
+    subject: string;
+    from: string;
+  }[];
+  coldEmails?: {
+    content: string;
+    subject: string;
+    from: string;
+  }[];
+  notifications?: {
+    content: string;
+    subject: string;
+    from: string;
+  }[];
+  toReply?: {
+    content: string;
+    subject: string;
+    from: string;
+  }[];
+  executedRules?: Record<string, { content: string | null; type: string }[]>;
 }
 
 export default function DigestEmail(props: DigestEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
-    newsletters,
-    receipts,
-    marketing,
-    calendar,
-    coldEmails,
-    notifications,
-    toReply,
+    newsletters = [],
+    receipts = [],
+    marketing = [],
+    calendar = [],
+    coldEmails = [],
+    notifications = [],
+    toReply = [],
     unsubscribeToken,
+    executedRules,
   } = props;
-  const formattedDate = new Date(props.date).toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+  const formattedDate = new Date(props.date || new Date()).toLocaleDateString(
+    "en-US",
+    {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    },
+  );
 
   return (
     <Html>
@@ -122,14 +111,39 @@ export default function DigestEmail(props: DigestEmailProps) {
               </Text>
             </Section>
 
-            {/* {Object.entries(itemsByCategory).map(([category, items]) => (
-              <CategorySection
-                key={category}
-                category={category}
-                items={items}
-                baseUrl={baseUrl}
-              />
-            ))} */}
+            {/* Executed Rules Section */}
+            {executedRules && Object.entries(executedRules).length > 0 && (
+              <Section className="mb-[24px]">
+                <div className="bg-blue-50 rounded-[8px] p-[16px]">
+                  <Heading className="text-[18px] font-bold text-blue-800 mt-[0px] mb-[16px]">
+                    🤖 Executed Rules
+                  </Heading>
+
+                  {Object.entries(executedRules).map(([ruleName, actions]) => (
+                    <div
+                      key={ruleName}
+                      className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200"
+                    >
+                      <Text className="text-[16px] font-bold text-gray-800 m-0">
+                        {ruleName}
+                      </Text>
+                      {actions.map((action, index) => (
+                        <div key={index} className="mt-[8px]">
+                          <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
+                            Type: {action.type}
+                          </Text>
+                          {action.content && (
+                            <Text className="text-[13px] text-gray-500 m-0">
+                              {action.content}
+                            </Text>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {/* Category Countdown - Colored Background Rows with Hyperlinks */}
             <Section className="mb-[32px]">
@@ -227,13 +241,13 @@ export default function DigestEmail(props: DigestEmailProps) {
                     className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200"
                   >
                     <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {email.sender}
+                      {email.from}
                     </Text>
                     <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
                       {email.subject}
                     </Text>
                     <Text className="text-[13px] text-gray-500 m-0">
-                      {email.preview}
+                      {email.content}
                     </Text>
                   </div>
                 ))}
@@ -252,24 +266,15 @@ export default function DigestEmail(props: DigestEmailProps) {
                     key={index}
                     className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-green-200"
                   >
-                    <Row>
-                      <Column className="w-[70%]">
-                        <Text className="text-[16px] font-bold text-gray-800 m-0">
-                          {receipt.merchant}
-                        </Text>
-                        <Text className="text-[14px] text-gray-600 m-0">
-                          {receipt.description}
-                        </Text>
-                      </Column>
-                      <Column className="w-[30%] text-right">
-                        <Text className="text-[14px] font-bold text-gray-800 m-0">
-                          {receipt.amount}
-                        </Text>
-                        <Text className="text-[13px] text-gray-500 m-0">
-                          {receipt.time}
-                        </Text>
-                      </Column>
-                    </Row>
+                    <Text className="text-[16px] font-bold text-gray-800 m-0">
+                      {receipt.from}
+                    </Text>
+                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
+                      {receipt.subject}
+                    </Text>
+                    <Text className="text-[13px] text-gray-500 m-0">
+                      {receipt.content}
+                    </Text>
                   </div>
                 ))}
               </div>
@@ -288,13 +293,13 @@ export default function DigestEmail(props: DigestEmailProps) {
                     className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-purple-200"
                   >
                     <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {email.sender}
+                      {email.from}
                     </Text>
                     <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
                       {email.subject}
                     </Text>
                     <Text className="text-[13px] text-gray-500 m-0">
-                      {email.preview}
+                      {email.content}
                     </Text>
                   </div>
                 ))}
@@ -314,13 +319,13 @@ export default function DigestEmail(props: DigestEmailProps) {
                     className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-amber-200"
                   >
                     <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {event.title}
+                      {event.from}
                     </Text>
-                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[0px]">
-                      {event.time} • {event.location}
+                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
+                      {event.subject}
                     </Text>
-                    <Text className="text-[13px] text-gray-500 mt-[4px] m-0">
-                      {event.organizer}
+                    <Text className="text-[13px] text-gray-500 m-0">
+                      {event.content}
                     </Text>
                   </div>
                 ))}
@@ -340,13 +345,13 @@ export default function DigestEmail(props: DigestEmailProps) {
                     className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-gray-200"
                   >
                     <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {email.sender}
+                      {email.from}
                     </Text>
                     <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
                       {email.subject}
                     </Text>
                     <Text className="text-[13px] text-gray-500 m-0">
-                      {email.company}
+                      {email.content}
                     </Text>
                   </div>
                 ))}
@@ -366,13 +371,13 @@ export default function DigestEmail(props: DigestEmailProps) {
                     className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-pink-200"
                   >
                     <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {notification.app}
+                      {notification.from}
                     </Text>
-                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[0px]">
-                      {notification.message}
+                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
+                      {notification.subject}
                     </Text>
-                    <Text className="text-[13px] text-gray-500 mt-[4px] m-0">
-                      {notification.time}
+                    <Text className="text-[13px] text-gray-500 m-0">
+                      {notification.content}
                     </Text>
                   </div>
                 ))}
@@ -392,13 +397,13 @@ export default function DigestEmail(props: DigestEmailProps) {
                     className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-red-200"
                   >
                     <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {email.sender}
+                      {email.from}
                     </Text>
                     <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
                       {email.subject}
                     </Text>
                     <Text className="text-[13px] text-gray-500 m-0">
-                      Received: {email.received} • Due: {email.dueBy}
+                      {email.content}
                     </Text>
                   </div>
                 ))}
@@ -430,140 +435,135 @@ DigestEmail.PreviewProps = {
   unsubscribeToken: "123",
   newsletters: [
     {
-      sender: "Morning Brew",
+      from: "Morning Brew",
       subject: "🔥 Today's top business stories",
-      preview:
+      content:
         "The latest on tech layoffs, market trends, and startup funding rounds...",
     },
     {
-      sender: "The New York Times",
+      from: "The New York Times",
       subject: "Breaking News: Latest developments",
-      preview:
+      content:
         "Stay informed with the latest headlines and analysis from around the world...",
     },
     {
-      sender: "Product Hunt Daily",
+      from: "Product Hunt Daily",
       subject: "🚀 Today's hottest tech products",
-      preview:
+      content:
         "Discover the newest apps, websites, and tech products that launched today...",
     },
   ],
   receipts: [
     {
-      merchant: "Amazon",
-      description: "Order #112-3456789-0123456",
-      amount: "$42.99",
-      time: "9:15 AM",
+      from: "Amazon",
+      subject: "Order #112-3456789-0123456",
+      content: "Order total: $42.99 • Time: 9:15 AM",
     },
     {
-      merchant: "Uber Eats",
-      description: "Order #EAT-123456789",
-      amount: "$23.45",
-      time: "1:20 PM",
+      from: "Uber Eats",
+      subject: "Order #EAT-123456789",
+      content: "Order total: $23.45 • Time: 1:20 PM",
     },
     {
-      merchant: "Netflix",
-      description: "Monthly subscription",
-      amount: "$15.99",
-      time: "4:30 AM",
+      from: "Netflix",
+      subject: "Monthly subscription",
+      content: "Subscription: $15.99 • Time: 4:30 AM",
     },
   ],
   marketing: [
     {
-      sender: "Spotify",
+      from: "Spotify",
       subject: "Limited offer: 3 months premium for $0.99",
-      preview: "Upgrade your music experience with this exclusive deal",
+      content: "Upgrade your music experience with this exclusive deal",
     },
     {
-      sender: "Nike",
+      from: "Nike",
       subject: "JUST IN: New Summer Collection 🔥",
-      preview: "Be the first to shop our latest styles before they sell out",
+      content: "Be the first to shop our latest styles before they sell out",
     },
     {
-      sender: "Airbnb",
+      from: "Airbnb",
       subject: "Weekend getaway ideas near you",
-      preview: "Discover unique stays within a 2-hour drive from your location",
+      content: "Discover unique stays within a 2-hour drive from your location",
     },
   ],
   calendar: [
     {
-      title: "Team Weekly Sync",
-      time: "Tomorrow, 10:00 AM - 11:00 AM",
-      location: "Meeting Room 3 / Zoom",
-      organizer: "Sarah Johnson",
+      from: "Sarah Johnson",
+      subject: "Team Weekly Sync",
+      content: "Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
     },
     {
-      title: "Quarterly Review",
-      time: "Friday, May 26, 2:00 PM - 4:00 PM",
-      location: "Conference Room A",
-      organizer: "Michael Chen",
+      from: "Michael Chen",
+      subject: "Quarterly Review",
+      content: "Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
     },
     {
-      title: "Dentist Appointment",
-      time: "Monday, May 29, 9:30 AM",
-      location: "Downtown Dental Clinic",
-      organizer: "Personal Calendar",
+      from: "Personal Calendar",
+      subject: "Dentist Appointment",
+      content: "Monday, May 29, 9:30 AM • Downtown Dental Clinic",
     },
   ],
   coldEmails: [
     {
-      sender: "David Williams",
+      from: "David Williams",
       subject: "Partnership opportunity for your business",
-      company: "Growth Solutions Inc.",
+      content: "Growth Solutions Inc.",
     },
     {
-      sender: "Jennifer Lee",
+      from: "Jennifer Lee",
       subject: "Request for a quick call this week",
-      company: "Venture Capital Partners",
+      content: "Venture Capital Partners",
     },
     {
-      sender: "Robert Taylor",
+      from: "Robert Taylor",
       subject: "Introducing our new B2B solution",
-      company: "Enterprise Tech Solutions",
+      content: "Enterprise Tech Solutions",
     },
   ],
   notifications: [
     {
-      app: "LinkedIn",
-      message: "5 people viewed your profile this week",
-      time: "11:00 AM",
+      from: "LinkedIn",
+      subject: "Profile Views",
+      content: "5 people viewed your profile this week • 11:00 AM",
     },
     {
-      app: "Slack",
-      message: "3 unread messages in #general channel",
-      time: "2:45 PM",
+      from: "Slack",
+      subject: "Unread Messages",
+      content: "3 unread messages in #general channel • 2:45 PM",
     },
     {
-      app: "GitHub",
-      message: "Pull request #123 was approved",
-      time: "5:30 PM",
+      from: "GitHub",
+      subject: "Pull Request Update",
+      content: "Pull request #123 was approved • 5:30 PM",
     },
     {
-      app: "Twitter",
-      message: "You have 7 new followers",
-      time: "6:15 PM",
+      from: "Twitter",
+      subject: "New Followers",
+      content: "You have 7 new followers • 6:15 PM",
     },
   ],
   toReply: [
     {
-      sender: "John Smith",
+      from: "John Smith",
       subject: "Re: Project proposal feedback",
-      received: "Yesterday, 4:30 PM",
-      dueBy: "Today",
+      content: "Received: Yesterday, 4:30 PM • Due: Today",
     },
     {
-      sender: "Client XYZ",
+      from: "Client XYZ",
       subject: "Questions about the latest deliverable",
-      received: "Monday, 10:15 AM",
-      dueBy: "Tomorrow",
+      content: "Received: Monday, 10:15 AM • Due: Tomorrow",
     },
     {
-      sender: "HR Department",
+      from: "HR Department",
       subject: "Annual review scheduling",
-      received: "Tuesday, 9:00 AM",
-      dueBy: "Friday",
+      content: "Received: Tuesday, 9:00 AM • Due: Friday",
     },
   ],
+  executedRules: {
+    rule1: [{ content: "Rule 1 content", type: "text" }],
+    rule2: [{ content: "Rule 2 content", type: "text" }],
+  },
 };
 
 function Footer({

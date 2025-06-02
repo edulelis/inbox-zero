@@ -71,6 +71,16 @@ export async function executeAct({
           logger,
         });
       }
+
+      if (action.type === ActionType.DIGEST && actionResult?.content) {
+        await prisma.executedAction.update({
+          where: { id: action.id },
+          data: {
+            content: actionResult.content,
+            subject: actionResult.subject,
+          },
+        });
+      }
     } catch (error) {
       await prisma.executedRule.update({
         where: { id: executedRule.id },

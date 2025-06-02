@@ -106,7 +106,7 @@ model EmailAccount {
 
   // Digest email settings
   digestFrequency   UserFrequency?
-  digestFrequencyId String?  @unique
+  digestFrequencyId String?        @unique
   lastDigestEmailAt DateTime?
 
   userId    String
@@ -138,18 +138,18 @@ model UserFrequency {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  intervalDays    Int?     // Total interval in days
-  occurrences     Int?     // Number of times within the interval
-  
+  intervalDays Int? // Total interval in days
+  occurrences  Int? // Number of times within the interval
+
   // Bit mask for days of week (0b0000000 to 0b1111111)
   // Each bit represents a day (Sunday to Saturday)
   // e.g., 0b1000001 means Sunday and Saturday
-  daysOfWeek     Int?     // 0-127 (2^7 - 1)
-  
+  daysOfWeek Int? // 0-127 (2^7 - 1)
+
   // Time of day stored as DateTime
   // Only the time portion will be used when checking if it's time to send
-  timeOfDay      DateTime?
-  
+  timeOfDay DateTime?
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
