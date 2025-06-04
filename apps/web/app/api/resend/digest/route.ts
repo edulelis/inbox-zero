@@ -9,6 +9,8 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { camelCase } from "lodash";
+import { calculateNextDigestDate } from "@/utils/digest";
+import { C } from "vitest/dist/chunks/reporters.d.CfRkRKN2.js";
 
 export const maxDuration = 60;
 
@@ -29,79 +31,113 @@ async function sendEmail({
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
+    include: {
+      digestFrequency: true,
+    },
   });
 
   if (!emailAccount) {
     throw new Error("Email account not found");
   }
 
-  // Get executed actions grouped by rules
-  const executedRules = await prisma.executedRule.findMany({
+  const digests = await prisma.digest.findMany({
     where: {
       emailAccountId,
-      status: "APPLIED",
-      actionItems: {
-        some: {
-          type: "DIGEST",
+      action: {
+        executedRule: {
+          status: "APPLIED",
         },
       },
     },
     include: {
-      rule: {
-        select: {
-          name: true,
-        },
-      },
-      actionItems: {
-        where: {
-          type: "DIGEST",
-        },
-        select: {
-          content: true,
-          type: true,
+      action: {
+        include: {
+          executedRule: {
+            include: {
+              rule: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
         },
       },
     },
   });
 
-  // Group actions by rule name
+  // Transform the data to match the expected format
+  const executedRules = digests.map((digest) => ({
+    ...digest.action?.executedRule,
+    content: digest.summary,
+  }));
+
+  /**
+   * Group actions by rule name using camelCase
+   * So the output will be:
+   * {
+   *   "toReply": [
+   *     { content: "Action content" }
+   *   ],
+   *   "newsletters": [
+   *     { content: "Action content" }
+   *   ],
+   *   ...
+   * */
   const executedRulesByRule = executedRules.reduce(
     (acc, executedRule) => {
       const ruleName = camelCase(executedRule.rule?.name || "Unknown Rule");
       if (!acc[ruleName]) {
         acc[ruleName] = [];
       }
-      acc[ruleName].push(...executedRule.actionItems);
+      acc[ruleName].push({ content: executedRule.content });
       return acc;
     },
-    {} as Record<string, { content: string | null; type: string }[]>,
+    {} as Record<string, { content: string | null }[]>,
   );
 
   const token = await createUnsubscribeToken({ emailAccountId });
 
   console.log(executedRulesByRule);
 
+  await sendDigestEmail({
+    to: emailAccount.email,
+    emailProps: {
+      ...executedRulesByRule,
+      baseUrl: env.NEXT_PUBLIC_BASE_URL,
+      unsubscribeToken: token,
+      date: new Date(),
+    },
+  });
+
+  return;
+
   await Promise.all([
     sendDigestEmail({
       to: emailAccount.email,
       emailProps: {
-        newsletters: [{ from: "", subject: "", content: "" }],
-        receipts: [{ from: "", subject: "", content: "" }],
-        marketing: [{ from: "", subject: "", content: "" }],
-        calendar: [{ from: "", subject: "", content: "" }],
-        coldEmails: [{ from: "", subject: "", content: "" }],
-        notifications: [{ from: "", subject: "", content: "" }],
-        toReply: [{ from: "", subject: "", content: "" }],
         ...executedRulesByRule,
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
         unsubscribeToken: token,
         date: new Date(),
       },
     }),
-    prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { lastDigestEmailAt: new Date() },
-    }),
+    ...(emailAccount.digestFrequencyId
+      ? [
+          prisma.userFrequency.update({
+            where: {
+              id: emailAccount.digestFrequencyId,
+              emailAccountId,
+            },
+            data: {
+              lastOcurrenceAt: new Date(),
+              nextOcurrenceAt: calculateNextDigestDate(
+                emailAccount.digestFrequency!,
+              ),
+            },
+          }),
+        ]
+      : []),
   ]);
 
   return { success: true };

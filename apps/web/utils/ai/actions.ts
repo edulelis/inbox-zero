@@ -19,6 +19,9 @@ import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
+import { threadId } from "worker_threads";
+import { aiSummarizeEmail } from "@/utils/ai/digest/summarize-email";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -224,10 +227,18 @@ const track_thread: ActionFunction<any> = async ({
   });
 };
 
-const digest: ActionFunction<any> = async ({ gmail, email, args }) => {
-  return {
-    content: email.textPlain?.slice(0, 100),
-    subject: email.headers.subject,
-    from: email.headers.from,
-  };
+const digest: ActionFunction<any> = async ({ email, emailAccountId }) => {
+  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+
+  if (!emailAccount) throw new Error("Email account not found");
+
+  return await aiSummarizeEmail({
+    emailAccount,
+    messageToSummarize: {
+      id: email.id,
+      from: email.headers.from,
+      subject: email.headers.subject,
+      content: email.textPlain || "",
+    },
+  });
 };

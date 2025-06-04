@@ -72,13 +72,12 @@ export async function executeAct({
         });
       }
 
-      if (action.type === ActionType.DIGEST && actionResult?.content) {
-        await prisma.executedAction.update({
-          where: { id: action.id },
-          data: {
-            content: actionResult.content,
-            subject: actionResult.subject,
-          },
+      if (action.type === ActionType.DIGEST) {
+        await upsertDigest({
+          message,
+          emailAccountId,
+          actionId: action.id,
+          actionResult,
         });
       }
     } catch (error) {
@@ -98,4 +97,44 @@ export async function executeAct({
     .catch((error) => {
       logger.error("Failed to update executed rule", { error });
     });
+}
+
+// TODO: move to utils
+async function upsertDigest({
+  message,
+  emailAccountId,
+  actionId,
+  actionResult,
+}: {
+  message: ParsedMessage;
+  emailAccountId: string;
+  actionId: string;
+  actionResult: any;
+}) {
+  const existingDigest = await prisma.digest.findFirst({
+    where: {
+      messageId: message.id,
+      threadId: message.threadId,
+      emailAccountId,
+    },
+  });
+  if (existingDigest) {
+    await prisma.digest.update({
+      where: { id: existingDigest.id },
+      data: {
+        summary: actionResult.summary,
+        actionId,
+      },
+    });
+  } else {
+    await prisma.digest.create({
+      data: {
+        messageId: message.id,
+        threadId: message.threadId,
+        summary: actionResult.summary,
+        emailAccountId,
+        actionId,
+      },
+    });
+  }
 }

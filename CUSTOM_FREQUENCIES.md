@@ -8,12 +8,6 @@ model UserFrequency {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // The type of frequency (PREDEFINED or CUSTOM)
-  type      FrequencyType
-
-  // For predefined frequencies (DAILY, WEEKLY, etc)
-  predefinedValue Frequency?
-
   // For custom frequencies
   intervalDays    Int?     // Total interval in days
   occurrences     Int?     // Number of times within the interval

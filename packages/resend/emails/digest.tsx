@@ -20,12 +20,12 @@ export interface DigestEmailProps {
   baseUrl: string;
   unsubscribeToken: string;
   date?: Date;
-  newsletters?: {
+  newsletter?: {
     content: string;
     subject: string;
     from: string;
   }[];
-  receipts?: {
+  receipt?: {
     content: string;
     subject: string;
     from: string;
@@ -40,12 +40,12 @@ export interface DigestEmailProps {
     subject: string;
     from: string;
   }[];
-  coldEmails?: {
+  coldEmail?: {
     content: string;
     subject: string;
     from: string;
   }[];
-  notifications?: {
+  notification?: {
     content: string;
     subject: string;
     from: string;
@@ -55,7 +55,6 @@ export interface DigestEmailProps {
     subject: string;
     from: string;
   }[];
-  executedRules?: Record<string, { content: string | null; type: string }[]>;
 }
 
 export default function DigestEmail(props: DigestEmailProps) {
@@ -66,19 +65,10 @@ export default function DigestEmail(props: DigestEmailProps) {
     marketing = [],
     calendar = [],
     coldEmails = [],
-    notifications = [],
+    notification = [],
     toReply = [],
     unsubscribeToken,
-    executedRules,
   } = props;
-  const formattedDate = new Date(props.date || new Date()).toLocaleDateString(
-    "en-US",
-    {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    },
-  );
 
   return (
     <Html>
@@ -112,26 +102,26 @@ export default function DigestEmail(props: DigestEmailProps) {
             </Section>
 
             {/* Executed Rules Section */}
-            {executedRules && Object.entries(executedRules).length > 0 && (
+            {(newsletters.length > 0 ||
+              receipts.length > 0 ||
+              marketing.length > 0 ||
+              calendar.length > 0 ||
+              coldEmails.length > 0 ||
+              notification.length > 0 ||
+              toReply.length > 0) && (
               <Section className="mb-[24px]">
                 <div className="bg-blue-50 rounded-[8px] p-[16px]">
                   <Heading className="text-[18px] font-bold text-blue-800 mt-[0px] mb-[16px]">
                     🤖 Executed Rules
                   </Heading>
 
-                  {Object.entries(executedRules).map(([ruleName, actions]) => (
-                    <div
-                      key={ruleName}
-                      className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200"
-                    >
+                  {newsletters.length > 0 && (
+                    <div className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200">
                       <Text className="text-[16px] font-bold text-gray-800 m-0">
-                        {ruleName}
+                        Newsletters
                       </Text>
-                      {actions.map((action, index) => (
+                      {newsletters.map((action, index) => (
                         <div key={index} className="mt-[8px]">
-                          <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
-                            Type: {action.type}
-                          </Text>
                           {action.content && (
                             <Text className="text-[13px] text-gray-500 m-0">
                               {action.content}
@@ -140,7 +130,109 @@ export default function DigestEmail(props: DigestEmailProps) {
                         </div>
                       ))}
                     </div>
-                  ))}
+                  )}
+
+                  {receipts.length > 0 && (
+                    <div className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200">
+                      <Text className="text-[16px] font-bold text-gray-800 m-0">
+                        Receipts
+                      </Text>
+                      {receipts.map((action, index) => (
+                        <div key={index} className="mt-[8px]">
+                          {action.content && (
+                            <Text className="text-[13px] text-gray-500 m-0">
+                              {action.content}
+                            </Text>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {marketing.length > 0 && (
+                    <div className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200">
+                      <Text className="text-[16px] font-bold text-gray-800 m-0">
+                        Marketing
+                      </Text>
+                      {marketing.map((action, index) => (
+                        <div key={index} className="mt-[8px]">
+                          {action.content && (
+                            <Text className="text-[13px] text-gray-500 m-0">
+                              {action.content}
+                            </Text>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {calendar.length > 0 && (
+                    <div className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200">
+                      <Text className="text-[16px] font-bold text-gray-800 m-0">
+                        Calendar
+                      </Text>
+                      {calendar.map((action, index) => (
+                        <div key={index} className="mt-[8px]">
+                          {action.content && (
+                            <Text className="text-[13px] text-gray-500 m-0">
+                              {action.content}
+                            </Text>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {coldEmails.length > 0 && (
+                    <div className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200">
+                      <Text className="text-[16px] font-bold text-gray-800 m-0">
+                        Cold Emails
+                      </Text>
+                      {coldEmails.map((action, index) => (
+                        <div key={index} className="mt-[8px]">
+                          {action.content && (
+                            <Text className="text-[13px] text-gray-500 m-0">
+                              {action.content}
+                            </Text>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {notification.length > 0 && (
+                    <div className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200">
+                      <Text className="text-[16px] font-bold text-gray-800 m-0">
+                        Notification
+                      </Text>
+                      {notification.map((action, index) => (
+                        <div key={index} className="mt-[8px]">
+                          {action.content && (
+                            <Text className="text-[13px] text-gray-500 m-0">
+                              {action.content}
+                            </Text>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {toReply.length > 0 && (
+                    <div className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200">
+                      <Text className="text-[16px] font-bold text-gray-800 m-0">
+                        To Reply
+                      </Text>
+                      {toReply.map((action, index) => (
+                        <div key={index} className="mt-[8px]">
+                          {action.content && (
+                            <Text className="text-[13px] text-gray-500 m-0">
+                              {action.content}
+                            </Text>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Section>
             )}
@@ -207,11 +299,11 @@ export default function DigestEmail(props: DigestEmailProps) {
 
               <div className="bg-pink-50 p-[12px] rounded-[4px] mb-[8px] flex justify-between items-center">
                 <Text className="text-[14px] font-medium text-pink-800 m-0">
-                  🔔 Notifications
+                  🔔 Notification
                 </Text>
                 <div className="bg-pink-100 px-[12px] py-[4px] rounded-[16px]">
                   <Text className="text-[14px] font-bold text-pink-800 m-0">
-                    {notifications.length}
+                    {notification.length}
                   </Text>
                 </div>
               </div>
@@ -358,14 +450,14 @@ export default function DigestEmail(props: DigestEmailProps) {
               </div>
             </Section>
 
-            {/* Notifications Section */}
-            <Section className="mb-[24px]" id="notifications">
+            {/* Notification Section */}
+            <Section className="mb-[24px]" id="notification">
               <div className="bg-pink-50 rounded-[8px] p-[16px]">
                 <Heading className="text-[18px] font-bold text-pink-800 mt-[0px] mb-[16px]">
-                  🔔 Notifications ({notifications.length})
+                  🔔 Notification ({notification.length})
                 </Heading>
 
-                {notifications.map((notification, index) => (
+                {notification.map((notification, index) => (
                   <div
                     key={index}
                     className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-pink-200"
@@ -521,7 +613,7 @@ DigestEmail.PreviewProps = {
       content: "Enterprise Tech Solutions",
     },
   ],
-  notifications: [
+  notification: [
     {
       from: "LinkedIn",
       subject: "Profile Views",

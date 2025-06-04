@@ -107,7 +107,6 @@ model EmailAccount {
   // Digest email settings
   digestFrequency   UserFrequency?
   digestFrequencyId String?        @unique
-  lastDigestEmailAt DateTime?
 
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -128,9 +127,29 @@ model EmailAccount {
   emailTokens    EmailToken[]
   knowledge      Knowledge[]
   chats          Chat[]
+  digests        Digest[]
 
   @@index([lastSummaryEmailAt])
-  @@index([lastDigestEmailAt])
+}
+
+model Digest {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  messageId      String
+  threadId       String
+  summary        String   @db.Text
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  actionId       String?
+  action         ExecutedAction? @relation(fields: [actionId], references: [id])
+
+  @@index([emailAccountId])
+  @@index([messageId])
+  @@index([threadId])
+  @@index([actionId])
+
+  @@unique([emailAccountId, messageId, threadId])
 }
 
 model UserFrequency {
@@ -152,6 +171,9 @@ model UserFrequency {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  lastOcurrenceAt DateTime?
+  nextOcurrenceAt DateTime?
 
   @@unique([emailAccountId])
 }
@@ -342,6 +364,7 @@ model ExecutedAction {
   draftId      String? // Gmail draft ID created by DRAFT_EMAIL action
   wasDraftSent Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
   draftSendLog DraftSendLog? // Will exist if the draft was sent
+  digests      Digest[] // Relation to digests created by this action
 }
 
 // Notes:
