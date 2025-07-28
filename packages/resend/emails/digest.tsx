@@ -149,36 +149,20 @@ export default function DigestEmail(props: DigestEmailProps) {
   };
 
   const getCategoriesWithItemsCount = () => {
-    return Object.keys(digestData).filter(
-      (key) =>
-        Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
+    return Object.entries(digestData).filter(
+      ([key, value]) => Array.isArray(value) && (value?.length ?? 0) > 0,
     ).length;
   };
 
-  /**
-   * Renders a grid of categories with a count of the number of emails in each category.
-   * This is needed because we have a total of 7 categories that can be displayed varying from 2 to 7.
-   * The grid is rendered differently depending on the number of categories.
-   *
-   * 2 categories: single row
-   * 3-4 categories: 2x2 grid
-   * 5-7 categories: 2x2 grid + bottom row
-   *
-   * @returns Renders a grid of categories with a count of the number of emails in each category.
-   */
   const renderCategoryGrid = () => {
-    // Get all present categories in digestData
-    const categories = Object.keys(digestData)
-      .filter(
-        (key) =>
-          Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
-      )
-      .map((key) => {
+    const categories = Object.entries(digestData)
+      .filter(([, value]) => Array.isArray(value) && (value?.length ?? 0) > 0)
+      .map(([key, value]) => {
         const info = getCategoryInfo(key);
         return {
           key,
           ...info,
-          count: (digestData[key] as DigestItem[]).length,
+          count: (value as DigestItem[]).length,
         };
       });
 
@@ -249,9 +233,8 @@ export default function DigestEmail(props: DigestEmailProps) {
   };
 
   // Return early if no digest items are found
-  const hasItems = Object.keys(digestData).some(
-    (key) =>
-      Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
+  const hasItems = Object.entries(digestData).some(
+    ([, value]) => Array.isArray(value) && (value?.length ?? 0) > 0,
   );
 
   if (!hasItems) {
@@ -355,13 +338,12 @@ export default function DigestEmail(props: DigestEmailProps) {
             {getCategoriesWithItemsCount() > 1 && (
               <Section className="mb-[24px]">{renderCategoryGrid()}</Section>
             )}
-            {Object.keys(digestData).map((categoryKey) =>
-              Array.isArray(digestData[categoryKey]) &&
-              digestData[categoryKey]?.length > 0 ? (
+            {Object.entries(digestData).map(([categoryKey, items]) =>
+              Array.isArray(items) && items?.length > 0 ? (
                 <CategorySection
                   key={categoryKey}
                   categoryKey={categoryKey}
-                  items={digestData[categoryKey] as DigestItem[]}
+                  items={items as DigestItem[]}
                 />
               ) : null,
             )}
@@ -624,7 +606,7 @@ DigestEmail.PreviewProps = {
       },
     },
   ],
-  funnyStuff: [
+  "Funny Stuff": [
     {
       from: "The Onion",
       subject: "Area Man Unsure If He’s Living In Simulation Or Just Milwaukee",
