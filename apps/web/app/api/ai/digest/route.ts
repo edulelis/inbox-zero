@@ -1,15 +1,15 @@
-import { NextResponse } from "next/server";
-import { digestBody } from "./validation";
 import { DigestStatus } from "@prisma/client";
-import { createScopedLogger } from "@/utils/logger";
-import prisma from "@/utils/prisma";
-import { RuleName } from "@/utils/rule/consts";
+import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
+import { NextResponse } from "next/server";
+import type { DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
 import { getRuleNameByExecutedAction } from "@/utils/actions/rule";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
-import { getEmailAccountWithAi } from "@/utils/user/get";
-import type { DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
+import { createScopedLogger } from "@/utils/logger";
 import { withError } from "@/utils/middleware";
-import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
+import prisma from "@/utils/prisma";
+import { RuleName } from "@/utils/rule/consts";
+import { getEmailAccountWithAi } from "@/utils/user/get";
+import { digestBody } from "./validation";
 
 async function resolveRuleName(actionId?: string): Promise<string> {
   if (!actionId) return RuleName.ColdEmail;
@@ -157,51 +157,51 @@ async function upsertDigest({
   }
 }
 
-export const POST = withError(
-  verifySignatureAppRouter(async (request: Request) => {
-    const logger = createScopedLogger("digest");
+export const handleProcessDigest = async (request: Request) => {
+  const logger = createScopedLogger("digest");
 
-    try {
-      const body = digestBody.parse(await request.json());
-      const { emailAccountId, coldEmailId, actionId, message } = body;
+  try {
+    const body = digestBody.parse(await request.json());
+    const { emailAccountId, coldEmailId, actionId, message } = body;
 
-      logger.with({ emailAccountId, messageId: message.id });
+    logger.with({ emailAccountId, messageId: message.id });
 
-      const emailAccount = await getEmailAccountWithAi({
-        emailAccountId,
-      });
-      if (!emailAccount) {
-        throw new Error("Email account not found");
-      }
-
-      const ruleName = await resolveRuleName(actionId);
-      const summary = await aiSummarizeEmailForDigest({
-        ruleName,
-        emailAccount,
-        messageToSummarize: {
-          ...message,
-          to: message.to || "",
-        },
-      });
-
-      if (!summary?.content) {
-        logger.info("Skipping digest item because it is not worth summarizing");
-        return new NextResponse("OK", { status: 200 });
-      }
-
-      await upsertDigest({
-        messageId: message.id || "",
-        threadId: message.threadId || "",
-        emailAccountId,
-        actionId,
-        coldEmailId,
-        content: summary,
-      });
-
-      return new NextResponse("OK", { status: 200 });
-    } catch (error) {
-      logger.error("Failed to process digest", { error });
-      return new NextResponse("Internal Server Error", { status: 500 });
+    const emailAccount = await getEmailAccountWithAi({
+      emailAccountId,
+    });
+    if (!emailAccount) {
+      throw new Error("Email account not found");
     }
-  }),
-);
+
+    const ruleName = await resolveRuleName(actionId);
+    const summary = await aiSummarizeEmailForDigest({
+      ruleName,
+      emailAccount,
+      messageToSummarize: {
+        ...message,
+        to: message.to || "",
+      },
+    });
+
+    if (!summary?.content) {
+      logger.info("Skipping digest item because it is not worth summarizing");
+      return new NextResponse("OK", { status: 200 });
+    }
+
+    await upsertDigest({
+      messageId: message.id || "",
+      threadId: message.threadId || "",
+      emailAccountId,
+      actionId,
+      coldEmailId,
+      content: summary,
+    });
+
+    return new NextResponse("OK", { status: 200 });
+  } catch (error) {
+    logger.error("Failed to process digest", { error });
+    return new NextResponse("Internal Server Error", { status: 500 });
+  }
+};
+
+export const POST = withError(verifySignatureAppRouter(handleProcessDigest));

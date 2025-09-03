@@ -1,22 +1,22 @@
-import { type NextRequest, NextResponse } from "next/server";
 import { sendDigestEmail } from "@inboxzero/resend";
-import { withEmailAccount, withError } from "@/utils/middleware";
-import { env } from "@/env";
-import { captureException, SafeError } from "@/utils/error";
-import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
-import { createUnsubscribeToken } from "@/utils/unsubscribe";
-import { calculateNextScheduleDate } from "@/utils/schedule";
-import type { ParsedMessage } from "@/utils/types";
-import { sendDigestEmailBody, type Digest } from "./validation";
 import { DigestStatus } from "@prisma/client";
-import { extractNameFromEmail } from "../../../../utils/email";
-import { RuleName } from "@/utils/rule/consts";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
-import { schema as digestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
 import { camelCase } from "lodash";
+import { type NextRequest, NextResponse } from "next/server";
+import { env } from "@/env";
+import { schema as digestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
 import { createEmailProvider } from "@/utils/email/provider";
+import { captureException, SafeError } from "@/utils/error";
+import { createScopedLogger } from "@/utils/logger";
+import { withEmailAccount, withError } from "@/utils/middleware";
+import prisma from "@/utils/prisma";
+import { RuleName } from "@/utils/rule/consts";
+import { calculateNextScheduleDate } from "@/utils/schedule";
 import { sleep } from "@/utils/sleep";
+import type { ParsedMessage } from "@/utils/types";
+import { createUnsubscribeToken } from "@/utils/unsubscribe";
+import { extractNameFromEmail } from "../../../../utils/email";
+import { type Digest, sendDigestEmailBody } from "./validation";
 
 export const maxDuration = 60;
 
@@ -312,32 +312,32 @@ export const GET = withEmailAccount(async (request) => {
   return NextResponse.json(result);
 });
 
-export const POST = withError(
-  verifySignatureAppRouter(async (request: NextRequest) => {
-    const json = await request.json();
-    const { success, data, error } = sendDigestEmailBody.safeParse(json);
+const handleSendDigest = async (request: NextRequest) => {
+  const json = await request.json();
+  const { success, data, error } = sendDigestEmailBody.safeParse(json);
 
-    if (!success) {
-      logger.error("Invalid request body", { error });
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 },
-      );
-    }
-    const { emailAccountId } = data;
+  if (!success) {
+    logger.error("Invalid request body", { error });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+  const { emailAccountId } = data;
 
-    logger.info("Sending digest email to user POST", { emailAccountId });
+  logger.info("Sending digest email to user POST", { emailAccountId });
 
-    try {
-      const result = await sendEmail({ emailAccountId });
-      return NextResponse.json(result);
-    } catch (error) {
-      logger.error("Error sending digest email", { error });
-      captureException(error);
-      return NextResponse.json(
-        { success: false, error: "Error sending digest email" },
-        { status: 500 },
-      );
-    }
-  }),
-);
+  try {
+    const result = await sendEmail({ emailAccountId });
+    return NextResponse.json(result);
+  } catch (error) {
+    logger.error("Error sending digest email", { error });
+    captureException(error);
+    return NextResponse.json(
+      { success: false, error: "Error sending digest email" },
+      { status: 500 },
+    );
+  }
+};
+
+export const POST = withError(verifySignatureAppRouter(handleSendDigest));
