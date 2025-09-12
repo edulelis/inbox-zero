@@ -1,30 +1,18 @@
 "use client";
 
 import { useCallback } from "react";
-import Link from "next/link";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { MemberDropdownMenu } from "@/components/MemberDropdownMenu";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  TrashIcon,
-  MoreHorizontal,
-  BarChart3,
-  BarChartIcon,
-} from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { removeMemberAction } from "@/utils/actions/remove-member";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -37,9 +25,15 @@ interface MemberCardProps {
   member: Member;
   onRemove: (memberId: string) => void;
   executedRulesCount?: number;
+  currentUserId?: string;
 }
 
-function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
+function MemberCard({
+  member,
+  onRemove,
+  executedRulesCount,
+  currentUserId,
+}: MemberCardProps) {
   return (
     <div className="flex items-center justify-between p-4 border rounded-lg">
       <div className="flex items-center space-x-4 flex-1 min-w-0">
@@ -90,36 +84,13 @@ function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
           </div>
         </div>
       </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
-            <MoreHorizontal className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => onRemove(member.id)}>
-            <TrashIcon className="mr-2 size-4" />
-            Remove
-          </DropdownMenuItem>
-          {member.user.emailAccounts?.[0]?.id ? (
-            <DropdownMenuItem asChild>
-              <Link href={`/${member.user.emailAccounts[0].id}/stats`}>
-                <BarChart3 className="mr-2 size-4" />
-                Analytics
-              </Link>
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem disabled>
-              <BarChart3 className="mr-2 size-4" />
-              Analytics
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem>
-            <BarChartIcon className="mr-2 size-4" />
-            Usage
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {currentUserId !== member.user.id && (
+        <MemberDropdownMenu
+          memberId={member.id}
+          emailAccountId={member.user.emailAccounts?.[0]?.id}
+          onRemove={onRemove}
+        />
+      )}
     </div>
   );
 }
@@ -127,6 +98,7 @@ function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
 export default function MembersPage() {
   const { data, isLoading, error, mutate } = useOrganizationMembers();
   const { data: executedRulesData } = useExecutedRulesCount();
+  const { data: currentUser } = useUser();
 
   const handleRemoveMember = useCallback(
     (memberId: string) => {
@@ -187,6 +159,7 @@ export default function MembersPage() {
                     member={member}
                     onRemove={handleRemoveMember}
                     executedRulesCount={executedRulesCount}
+                    currentUserId={currentUser?.id}
                   />
                 );
               })}
